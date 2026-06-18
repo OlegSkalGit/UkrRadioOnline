@@ -459,10 +459,6 @@ class UkrRadioApp(QMainWindow):
         self.sched_enable_action.toggled.connect(self.on_schedule_toggled)
         settings_menu.addAction(self.sched_enable_action)
         
-        self.sched_config_action = QAction("Налаштувати час розкладу...", self)
-        self.sched_config_action.triggered.connect(self.open_schedule_dialog)
-        settings_menu.addAction(self.sched_config_action)
-        
         # Довідка
         help_action = QAction("Довідка", self)
         help_action.triggered.connect(self.show_help)
