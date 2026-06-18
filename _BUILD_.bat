@@ -37,8 +37,9 @@ echo  Запуск процесу компіляції...
 echo ========================================================
 echo.
 
-REM 3. Компіляція програми через PyInstaller з оптимізацією розміру (виключаємо важкі модулі Qt)
+REM 3. Компіляція програми через PyInstaller з оптимізацією розміру (виключаємо важкі модулі Qt та стискаємо через UPX)
 ".venv\Scripts\pyinstaller" --onefile --windowed --name="UkrRadioOnline" ^
+    --upx-dir="upx-win64" ^
     --exclude-module PyQt6.QtWebEngineCore ^
     --exclude-module PyQt6.QtWebEngineWidgets ^
     --exclude-module PyQt6.QtSql ^

@@ -28,6 +28,7 @@ log.txt
 dist/
 build/
 *.spec
+upx-win64/
 
 # User recordings
 records/
