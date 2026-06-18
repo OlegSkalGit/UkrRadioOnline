@@ -91,7 +91,7 @@ def create_icon():
 class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Українське Радіо Онлайн")
+        self.setWindowTitle("Українське радіо (online)")
         self.setFixedSize(500, 520)
         self.setWindowIcon(create_icon())
         
@@ -123,7 +123,7 @@ class UkrRadioApp(QMainWindow):
         
         # Header
         header_layout = QHBoxLayout()
-        self.title_lbl = QLabel("УкрРадіо Онлайн 📻")
+        self.title_lbl = QLabel("Українське радіо (online) 📻")
         self.title_lbl.setProperty("class", "header_title")
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
@@ -472,7 +472,7 @@ class UkrRadioApp(QMainWindow):
     def closeEvent(self, event):
         event.ignore()
         self.hide()
-        self.tray_icon.showMessage("УкрРадіо", "Програма згорнута у трей. Радіо продовжує працювати.", QSystemTrayIcon.MessageIcon.Information, 2000)
+        self.tray_icon.showMessage("Українське радіо (online)", "Програма згорнута у трей. Радіо продовжує працювати.", QSystemTrayIcon.MessageIcon.Information, 2000)
 
     def quit_app(self):
         self.stop_radio()
