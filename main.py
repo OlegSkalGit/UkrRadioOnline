@@ -3,11 +3,13 @@ import json
 import os
 import datetime
 import winreg
+import urllib.request
+import re
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QComboBox, QRadioButton, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox, QButtonGroup)
-from PyQt6.QtCore import Qt, QTimer, QUrl, QTime
+from PyQt6.QtCore import Qt, QTimer, QUrl, QTime, QThread, pyqtSignal
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction
 
@@ -38,6 +40,7 @@ THEMES = {
 
 CONFIG_FILE = "radio_config.json"
 
+# Basic list of stations
 RADIO_STATIONS = {
     "Радіо Промінь": [
         {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3"},
@@ -51,22 +54,57 @@ RADIO_STATIONS = {
         {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3"},
         {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3-l"}
     ],
+    "Радіо Україна (Всесвітня служба)": [
+        {"name": "Основне", "url": "https://radio.ukr.radio/ur4-mp3"}
+    ],
+    "Радіоточка": [
+        {"name": "Основне", "url": "https://radio.ukr.radio/ur5-mp3"}
+    ],
     "Хіт FM": [
-        {"name": "Тест автоперемикання (Неробоче)", "url": "https://online.hitfm.ua/fake_broken_url"},
         {"name": "Основне", "url": "https://online.hitfm.ua/HitFM"}
+    ],
+    "Радіо ROKS": [
+        {"name": "Основне", "url": "https://online.radioroks.ua/RadioROKS"}
+    ],
+    "KISS FM": [
+        {"name": "Основне", "url": "https://online.kissfm.ua/KissFM"}
+    ],
+    "Радіо Релакс": [
+        {"name": "Основне", "url": "https://online.radiorelax.ua/RadioRelax"}
+    ],
+    "Мелодія FM": [
+        {"name": "Основне", "url": "https://online.melodiafm.ua/MelodiaFM"}
+    ],
+    "Радіо Байрактар": [
+        {"name": "Основне", "url": "https://online.radiobayraktar.ua/RadioBayraktar"}
     ],
     "Люкс ФМ": [
         {"name": "Основне", "url": "https://icecast.luxnet.ua/lux-fm"}
     ],
-    "Радіо Максимум": [
+    "Максимум ФМ": [
         {"name": "Основне", "url": "https://icecast.luxnet.ua/maximum"}
+    ],
+    "Ностальжі": [
+        {"name": "Основне", "url": "https://icecast.luxnet.ua/nostalgie"}
+    ],
+    "Шлягер FM": [
+        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/shlager"}
+    ],
+    "Радіо Шансон": [
+        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/shanson"}
+    ],
+    "DJ FM": [
+        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/djfm"}
+    ],
+    "Power FM": [
+        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/powerfm"}
     ]
 }
 
 def load_config():
     defaults = {
         'theme': 'dark',
-        'station': 'Українське Радіо',
+        'station': 'Радіо Промінь',
         'source_index': 0,
         'volume': 70,
         'schedule_enabled': False,
@@ -137,6 +175,56 @@ def check_autostart():
     except FileNotFoundError:
         return False
 
+class PlaylistFetcher(QThread):
+    playlistsLoaded = pyqtSignal(dict)
+    
+    def run(self):
+        new_stations = {}
+        
+        # 1. iptv.org.ua/iptv/radio.m3u
+        try:
+            req = urllib.request.Request('https://iptv.org.ua/iptv/radio.m3u', headers={'User-Agent':'Mozilla/5.0'})
+            response = urllib.request.urlopen(req, timeout=10)
+            content = response.read().decode('utf-8', errors='ignore').splitlines()
+            
+            current_name = None
+            for line in content:
+                line = line.strip()
+                if line.startswith("#EXTINF"):
+                    # Extract name after last comma
+                    parts = line.split(',')
+                    if len(parts) > 1:
+                        current_name = parts[-1].strip()
+                elif line.startswith("http") and current_name:
+                    if current_name not in new_stations:
+                        new_stations[current_name] = []
+                    new_stations[current_name].append({"name": f"[IPTV] Джерело {len(new_stations[current_name]) + 1}", "url": line})
+                    current_name = None
+        except Exception as e:
+            print("Error loading iptv.org.ua playlist:", e)
+            
+        # 2. opencartbot page m3u8 links
+        try:
+            req = urllib.request.Request('https://tech.opencartbot.com/instructions/ua-online-radio-playlist', headers={'User-Agent':'Mozilla/5.0'})
+            response = urllib.request.urlopen(req, timeout=10)
+            content = response.read().decode('utf-8', errors='ignore')
+            links = re.findall(r'href=\"([^\"]+)\"', content)
+            m3u_links = [l for l in links if '.m3u' in l]
+            
+            if m3u_links:
+                if "Opencartbot Збірка" not in new_stations:
+                    new_stations["Opencartbot Збірка"] = []
+                for idx, link in enumerate(set(m3u_links)):
+                    # try to extract a name from URL
+                    parts = link.split('/')
+                    name = parts[-2] if len(parts) > 2 else f"Джерело {idx+1}"
+                    new_stations["Opencartbot Збірка"].append({"name": f"[OCB] {name}", "url": link})
+        except Exception as e:
+            print("Error loading opencartbot playlist:", e)
+            
+        self.playlistsLoaded.emit(new_stations)
+
+
 class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -160,6 +248,11 @@ class UkrRadioApp(QMainWindow):
         self.init_ui()
         self.apply_theme()
         self.setup_tray()
+        
+        # Start fetching dynamic playlists
+        self.fetcher = PlaylistFetcher()
+        self.fetcher.playlistsLoaded.connect(self.on_playlists_loaded)
+        self.fetcher.start()
         
         # Scheduler Timer
         self.scheduler_timer = QTimer(self)
@@ -195,9 +288,14 @@ class UkrRadioApp(QMainWindow):
         lbl_station.setProperty("class", "bold_label")
         player_layout.addWidget(lbl_station)
         
+        # Station ComboBox
         self.station_cb = QComboBox()
         self.station_cb.addItems(list(RADIO_STATIONS.keys()))
-        self.station_cb.setCurrentText(self.config.get('station', 'Українське Радіо'))
+        
+        saved_station = self.config.get('station', 'Радіо Промінь')
+        if saved_station in RADIO_STATIONS:
+            self.station_cb.setCurrentText(saved_station)
+            
         self.station_cb.currentTextChanged.connect(self.on_station_change)
         player_layout.addWidget(self.station_cb)
         
@@ -403,6 +501,38 @@ class UkrRadioApp(QMainWindow):
         for src in sources:
             self.source_cb.addItem(src["name"])
         self.ignore_station_change = False
+
+    def on_playlists_loaded(self, new_stations):
+        # Merge new stations into the global dictionary
+        added_count = 0
+        for name, sources in new_stations.items():
+            if name in RADIO_STATIONS:
+                # Append new sources to existing station
+                for src in sources:
+                    if src['url'] not in [s['url'] for s in RADIO_STATIONS[name]]:
+                        RADIO_STATIONS[name].append(src)
+            else:
+                # Add entirely new station
+                RADIO_STATIONS[name] = sources
+                added_count += 1
+                
+        # Update the station combo box with new items (without replacing current selection)
+        if added_count > 0:
+            current_station = self.station_cb.currentText()
+            self.station_cb.blockSignals(True)
+            self.station_cb.clear()
+            self.station_cb.addItems(list(RADIO_STATIONS.keys()))
+            self.station_cb.setCurrentText(current_station)
+            self.station_cb.blockSignals(False)
+            
+        # Repopulate current sources just in case the current station received new sources
+        current_source_idx = self.source_cb.currentIndex()
+        self.populate_sources()
+        if current_source_idx < self.source_cb.count():
+            self.source_cb.setCurrentIndex(current_source_idx)
+            
+        if added_count > 0:
+            self.tray_icon.showMessage("Плейлисти оновлено", f"Успішно завантажено {added_count} нових інтернет-радіостанцій.", QSystemTrayIcon.MessageIcon.Information, 3000)
 
     def toggle_theme(self):
         self.current_theme = 'light' if self.current_theme == 'dark' else 'dark'
