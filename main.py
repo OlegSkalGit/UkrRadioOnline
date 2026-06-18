@@ -322,6 +322,31 @@ class PlaylistFetcher(QThread):
         self.playlistsLoaded.emit(new_stations)
 
 
+class RecordThread(QThread):
+    def __init__(self, url, filepath):
+        super().__init__()
+        self.url = url
+        self.filepath = filepath
+        self.running = True
+
+    def run(self):
+        try:
+            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
+            req = urllib.request.Request(self.url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=15) as response:
+                with open(self.filepath, 'wb') as f:
+                    while self.running:
+                        chunk = response.read(4096)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+        except Exception as e:
+            print(f"Recording error: {e}")
+
+    def stop(self):
+        self.running = False
+
+
 class ScheduleDialog(QDialog):
     def __init__(self, parent=None, config=None):
         super().__init__(parent)
@@ -400,6 +425,7 @@ class UkrRadioApp(QMainWindow):
         self.audio_output.setVolume(self.config.get('volume', 70) / 100.0)
         self.is_playing = False
         self.ignore_station_change = False
+        self.record_thread = None
         
         self.player.errorOccurred.connect(self.on_player_error)
         
@@ -540,6 +566,11 @@ class UkrRadioApp(QMainWindow):
         self.minimize_to_tray_action.setChecked(self.config.get('minimize_to_tray', True))
         self.minimize_to_tray_action.triggered.connect(self.save_current_config)
         settings_menu.addAction(self.minimize_to_tray_action)
+        
+        self.record_action = QAction("Запис", self, checkable=True)
+        self.record_action.setChecked(False)
+        self.record_action.toggled.connect(self.on_record_toggled)
+        settings_menu.addAction(self.record_action)
         
         self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
         self.audio_device_group = QActionGroup(self)
@@ -828,6 +859,9 @@ class UkrRadioApp(QMainWindow):
             self.stop_radio()
             return
             
+        if self.record_thread:
+            self.stop_recording()
+            
         station = self.station_cb.currentText()
         idx = self.source_cb.currentIndex()
         if idx < 0: return
@@ -844,8 +878,14 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
+        
+        if self.record_action.isChecked():
+            self.start_recording()
 
     def stop_radio(self):
+        if self.record_thread:
+            self.stop_recording()
+            
         self.player.stop()
         self.is_playing = False
         
@@ -908,6 +948,66 @@ class UkrRadioApp(QMainWindow):
         }
         save_config(cfg)
         self.config = cfg
+
+    def on_record_toggled(self, checked):
+        if checked:
+            if not self.is_playing:
+                QMessageBox.warning(self, "Запис", "Для початку запису спочатку запустіть відтворення радіостанції!")
+                self.record_action.blockSignals(True)
+                self.record_action.setChecked(False)
+                self.record_action.blockSignals(False)
+                return
+            self.start_recording()
+        else:
+            self.stop_recording()
+
+    def start_recording(self):
+        if self.record_thread and self.record_thread.isRunning():
+            return
+            
+        station = self.station_cb.currentText()
+        idx = self.source_cb.currentIndex()
+        if idx < 0:
+            self.record_action.blockSignals(True)
+            self.record_action.setChecked(False)
+            self.record_action.blockSignals(False)
+            return
+            
+        sources = RADIO_STATIONS.get(station, [])
+        if idx >= len(sources):
+            self.record_action.blockSignals(True)
+            self.record_action.setChecked(False)
+            self.record_action.blockSignals(False)
+            return
+            
+        url = sources[idx]["url"]
+        
+        # Build file path
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        now = datetime.datetime.now()
+        date_str = now.strftime("%Y.%m.%d")
+        date_dir = os.path.join(base_dir, "records", date_str)
+        
+        time_str = now.strftime("%H.%M.%S")
+        safe_station_name = re.sub(r'[\\/*?:"<>|]', "", station)
+        filename = f"{time_str}_{safe_station_name}.mp3"
+        filepath = os.path.join(date_dir, filename)
+        
+        self.record_thread = RecordThread(url, filepath)
+        self.record_thread.start()
+        
+        self.tray_icon.showMessage("Запис розпочато", f"Записуємо станцію '{station}' у файл:\n{filename}", QSystemTrayIcon.MessageIcon.Information, 1500)
+
+    def stop_recording(self):
+        if self.record_thread:
+            self.record_thread.stop()
+            self.record_thread.wait()
+            self.record_thread = None
+            self.tray_icon.showMessage("Запис зупинено", "Аудіофайл успішно збережено.", QSystemTrayIcon.MessageIcon.Information, 1500)
+            
+        self.record_action.blockSignals(True)
+        self.record_action.setChecked(False)
+        self.record_action.blockSignals(False)
 
     def is_in_schedule_range(self):
         if not self.config.get('schedule_enabled', False):
