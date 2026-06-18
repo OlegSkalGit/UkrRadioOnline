@@ -121,6 +121,7 @@ def load_config():
         'autostart': False,
         'auto_switch': True,
         'autoplay': True,
+        'autominimize': False,
         'audio_device': ''
     }
     if os.path.exists(CONFIG_FILE):
@@ -409,6 +410,11 @@ class UkrRadioApp(QMainWindow):
         self.autostart_action.setChecked(check_autostart())
         self.autostart_action.triggered.connect(self.on_autostart_change)
         settings_menu.addAction(self.autostart_action)
+        
+        self.autominimize_action = QAction("Автозгортання в трей при запуску", self, checkable=True)
+        self.autominimize_action.setChecked(self.config.get('autominimize', False))
+        self.autominimize_action.triggered.connect(self.save_current_config)
+        settings_menu.addAction(self.autominimize_action)
         
         self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
         self.audio_device_group = QActionGroup(self)
@@ -752,6 +758,7 @@ class UkrRadioApp(QMainWindow):
             'schedule_start': self.config.get('schedule_start', '08:00'),
             'schedule_end': self.config.get('schedule_end', '18:00'),
             'autostart': self.autostart_action.isChecked(),
+            'autominimize': self.autominimize_action.isChecked(),
             'auto_switch': self.autoswitch_action.isChecked(),
             'autoplay': self.autoplay_action.isChecked(),
             'audio_device': self.config.get('audio_device', '')
@@ -852,5 +859,6 @@ if __name__ == "__main__":
         sys.exit(app.exec())
         
     window = UkrRadioApp()
-    window.show()
+    if not window.config.get('autominimize', False):
+        window.show()
     sys.exit(app.exec())
