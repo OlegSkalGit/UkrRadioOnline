@@ -19,10 +19,10 @@ if not exist ".venv" (
 REM 2. Check and install PyInstaller inside .venv
 echo Checking PyInstaller...
 ".venv\Scripts\python.exe" -m pip show pyinstaller >nul 2>nul
-if %ERRORLEVEL% neq 0 (
+if errorlevel 1 (
     echo Installing PyInstaller in virtual environment...
     ".venv\Scripts\python.exe" -m pip install pyinstaller
-    if %ERRORLEVEL% neq 0 (
+    if errorlevel 1 (
         echo [ERROR] Failed to install PyInstaller.
         pause
         exit /b 1
