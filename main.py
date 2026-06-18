@@ -307,6 +307,17 @@ class UkrRadioApp(QMainWindow):
         self.scheduler_timer.timeout.connect(self.check_schedule)
         self.scheduler_timer.start(30000)
         
+        QTimer.singleShot(500, self.startup_autoplay)
+        
+    def startup_autoplay(self):
+        if not self.config.get('autoplay', True):
+            return
+            
+        if self.config.get('schedule_enabled', False):
+            self.check_schedule()
+        else:
+            self.play_radio()
+        
     def init_ui(self):
         self.create_menu()
         
@@ -384,7 +395,7 @@ class UkrRadioApp(QMainWindow):
         self.theme_action.triggered.connect(self.toggle_theme)
         settings_menu.addAction(self.theme_action)
         
-        self.autoplay_action = QAction("Автопрогравання при виборі станції", self, checkable=True)
+        self.autoplay_action = QAction("Автопрогравання", self, checkable=True)
         self.autoplay_action.setChecked(self.config.get('autoplay', True))
         self.autoplay_action.triggered.connect(self.save_current_config)
         settings_menu.addAction(self.autoplay_action)
@@ -760,7 +771,8 @@ class UkrRadioApp(QMainWindow):
                     is_in_schedule = current_time >= t_start or current_time <= t_end
                     
                 if is_in_schedule and not self.is_playing:
-                    self.play_radio()
+                    if self.config.get('autoplay', True):
+                        self.play_radio()
                 elif not is_in_schedule and self.is_playing:
                     self.stop_radio()
             except ValueError:
