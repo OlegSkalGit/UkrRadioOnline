@@ -23,3 +23,11 @@ config.json
 radio_config.json
 log.txt
 *.log
+
+# PyInstaller builds
+dist/
+build/
+*.spec
+
+# User recordings
+records/
