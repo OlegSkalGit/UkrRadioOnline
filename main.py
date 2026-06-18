@@ -813,16 +813,22 @@ class UkrRadioApp(QMainWindow):
         
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(self.on_tray_activated)
+        self.tray_icon.messageClicked.connect(self.show_and_activate_window)
         self.tray_icon.show()
 
     def on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
-            if self.isVisible():
+            if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
                 self.hide()
             else:
-                self.show()
-                self.raise_()
-                self.activateWindow()
+                self.show_and_activate_window()
+
+    def show_and_activate_window(self):
+        self.show()
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
 
     def closeEvent(self, event):
         event.ignore()
