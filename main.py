@@ -187,11 +187,103 @@ def check_autostart():
     except FileNotFoundError:
         return False
 
+def clean_mountpoint_name(mp):
+    mp = mp.strip('/')
+    
+    regions = {
+        "ck": "Черкаси",
+        "cn": "Чернігів",
+        "cr": "Кропивницький",
+        "cv": "Чернівці",
+        "dp": "Дніпро",
+        "if": "Івано-Франківськ",
+        "kh": "Харків",
+        "km": "Хмельницький",
+        "kr": "Краматорськ",
+        "krr": "Кривий Ріг",
+        "lv": "Львів",
+        "mk": "Миколаїв",
+        "od": "Одеса",
+        "pl": "Полтава",
+        "rv": "Рівне",
+        "sm": "Суми",
+        "te": "Тернопіль",
+        "uz": "Ужгород",
+        "vn": "Вінниця",
+        "vo": "Волинь",
+        "zt": "Житомир",
+        "kyiv": "Київ",
+    }
+    
+    bases = {
+        "ur1": "Українське Радіо",
+        "ur2": "Радіо Промінь",
+        "ur3": "Радіо Культура",
+        "ur4": "Радіо Україна (Всесвітня служба)",
+        "ur5": "Радіоточка",
+        "urkazka": "Радіо Казка",
+        "urclassic": "Радіо Класик",
+        "golosdonbasu": "Голос Донбасу",
+        "tysafm": "Тиса FM",
+        "rui": "Radio Ukraine International",
+    }
+    
+    parts = mp.split('-')
+    base_code = parts[0]
+    
+    base_name = bases.get(base_code, base_code.upper())
+    
+    region_name = ""
+    quality = "Основне"
+    
+    for part in parts[1:]:
+        if part in regions:
+            region_name = f" ({regions[part]})"
+        elif part == "mp3":
+            pass
+        elif part == "m":
+            quality = "Резерв"
+        elif part == "l" or part == "aacplus" or part == "aacp":
+            quality = "Низька якість"
+        elif part == "ulow":
+            quality = "Наднизька якість"
+            
+    final_name = f"{base_name}{region_name}"
+    return final_name, quality
+
+
 class PlaylistFetcher(QThread):
     playlistsLoaded = pyqtSignal(dict)
     
     def run(self):
         new_stations = {}
+        
+        # Завантажуємо спочатку з https://radio.ukr.radio/
+        try:
+            req = urllib.request.Request('https://radio.ukr.radio/status.xsl', headers={'User-Agent':'Mozilla/5.0'})
+            response = urllib.request.urlopen(req, timeout=10)
+            content = response.read().decode('utf-8', errors='ignore')
+            
+            blocks = content.split('<div class="newscontent">')
+            for block in blocks[1:]:
+                mp_match = re.search(r'<h3>Mount Point\s+([^<]+)</h3>', block)
+                if not mp_match:
+                    continue
+                mountpoint = mp_match.group(1).strip()
+                
+                if mountpoint.endswith('.xspf') or mountpoint.endswith('.m3u'):
+                    continue
+                    
+                stream_url = f"https://radio.ukr.radio{mountpoint}"
+                station_name, quality = clean_mountpoint_name(mountpoint)
+                
+                if station_name not in new_stations:
+                    new_stations[station_name] = []
+                
+                new_stations[station_name].append({"name": f"[Суспільне] {quality}", "url": stream_url})
+        except Exception:
+            pass
+
         try:
             req = urllib.request.Request('https://iptv.org.ua/iptv/radio.m3u', headers={'User-Agent':'Mozilla/5.0'})
             response = urllib.request.urlopen(req, timeout=10)
