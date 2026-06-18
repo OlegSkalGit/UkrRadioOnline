@@ -1,7 +1,7 @@
 {
     "theme": "dark",
     "station": "Радіо Промінь",
-    "source_index": 1,
+    "source_index": 0,
     "volume": 70,
     "schedule_enabled": true,
     "schedule_days": [
@@ -16,5 +16,7 @@
     "schedule_start": "08:00",
     "schedule_end": "17:00",
     "autostart": false,
-    "auto_switch": true
+    "auto_switch": true,
+    "autoplay": true,
+    "audio_device": ""
 }

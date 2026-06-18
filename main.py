@@ -279,7 +279,8 @@ class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Українське радіо (online)")
-        self.setFixedSize(500, 250)
+        self.setMinimumSize(500, 320)
+        self.resize(500, 320)
         self.setWindowIcon(create_icon())
         
         self.config = load_config()
@@ -538,6 +539,7 @@ class UkrRadioApp(QMainWindow):
             border: none;
             border-radius: 4px;
             padding: 8px 16px;
+            min-height: 30px;
         }}
         QPushButton:hover {{
             background-color: {c['bg']};
@@ -562,6 +564,7 @@ class UkrRadioApp(QMainWindow):
             border: 1px solid {c['bg']};
             border-radius: 4px;
             padding: 6px;
+            min-height: 25px;
         }}
         QComboBox QAbstractItemView {{
             background-color: {c['card_bg']};
