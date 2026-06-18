@@ -15,6 +15,13 @@ from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
 
+def get_app_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+APP_DIR = get_app_dir()
+
 THEMES = {
     'dark': {
         'bg': '#1e1e2e',
@@ -46,7 +53,7 @@ THEMES = {
     }
 }
 
-CONFIG_FILE = "radio_config.json"
+CONFIG_FILE = os.path.join(APP_DIR, "radio_config.json")
 
 # Basic list of stations
 RADIO_STATIONS = {
@@ -163,9 +170,12 @@ def set_autostart(enable=True):
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_ALL_ACCESS)
         if enable:
-            exe_path = sys.executable
-            script_path = os.path.abspath(__file__)
-            cmd = f'"{exe_path}" "{script_path}"'
+            if getattr(sys, 'frozen', False):
+                cmd = f'"{sys.executable}"'
+            else:
+                exe_path = sys.executable
+                script_path = os.path.abspath(__file__)
+                cmd = f'"{exe_path}" "{script_path}"'
             winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, cmd)
         else:
             try:
@@ -651,8 +661,7 @@ class UkrRadioApp(QMainWindow):
 
     def show_help(self):
         try:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            readme_path = os.path.join(base_dir, 'README.md')
+            readme_path = os.path.join(APP_DIR, 'README.md')
             with open(readme_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except Exception:
@@ -983,10 +992,9 @@ class UkrRadioApp(QMainWindow):
         url = sources[idx]["url"]
         
         # Build file path
-        base_dir = os.path.dirname(os.path.abspath(__file__))
         now = datetime.datetime.now()
         date_str = now.strftime("%Y.%m.%d")
-        date_dir = os.path.join(base_dir, "records", date_str)
+        date_dir = os.path.join(APP_DIR, "records", date_str)
         
         time_str = now.strftime("%H.%M.%S")
         safe_station_name = re.sub(r'[\\/*?:"<>|]', "", station)
