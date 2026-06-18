@@ -441,10 +441,9 @@ class UkrRadioApp(QMainWindow):
         settings_menu.addAction(self.sched_enable_action)
         
         # Довідка
-        help_menu = menubar.addMenu("Довідка")
-        about_action = QAction("Про програму...", self)
-        about_action.triggered.connect(self.show_help)
-        help_menu.addAction(about_action)
+        help_action = QAction("Довідка", self)
+        help_action.triggered.connect(self.show_help)
+        menubar.addAction(help_action)
         
         # Вихід
         exit_action = QAction("Вихід", self)
