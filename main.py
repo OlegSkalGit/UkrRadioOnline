@@ -465,24 +465,26 @@ class UkrRadioApp(QMainWindow):
             
         print(f"Player Error: {error} - {error_string}")
         
-        if self.auto_switch_chk.isChecked():
-            station = self.station_cb.currentText()
-            sources = RADIO_STATIONS.get(station, [])
-            current_idx = self.source_cb.currentIndex()
-            
-            # Find next source
-            next_idx = current_idx + 1
-            if next_idx < len(sources):
-                self.tray_icon.showMessage("Перемикання джерела", f"Помилка з'єднання. Перемикаємось на '{sources[next_idx]['name']}'.", QSystemTrayIcon.MessageIcon.Warning, 2000)
-                self.source_cb.setCurrentIndex(next_idx)
-                # play_radio is called automatically via on_source_change if is_playing is True
-            else:
-                # No more sources, stop
-                self.tray_icon.showMessage("Помилка відтворення", "Усі джерела недоступні.", QSystemTrayIcon.MessageIcon.Critical, 2000)
-                self.stop_radio()
+        station = self.station_cb.currentText()
+        sources = RADIO_STATIONS.get(station, [])
+        current_idx = self.source_cb.currentIndex()
+        
+        if self.auto_switch_chk.isChecked() and len(sources) > 1:
+            next_idx = (current_idx + 1) % len(sources)
+            self.tray_icon.showMessage("Обрив зв'язку", f"Перемикаємось на '{sources[next_idx]['name']}' (через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 2000)
+            self.ignore_station_change = True
+            self.source_cb.setCurrentIndex(next_idx)
+            self.save_current_config()
+            self.ignore_station_change = False
         else:
-            self.tray_icon.showMessage("Помилка відтворення", "Помилка відтворення поточного джерела.", QSystemTrayIcon.MessageIcon.Critical, 2000)
-            self.stop_radio()
+            self.tray_icon.showMessage("Обрив зв'язку", "Очікуємо на відновлення з'єднання (повтор через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 2000)
+            
+        # Try to reconnect after 5 seconds to prevent infinite instant-fail loops
+        QTimer.singleShot(5000, self.retry_play)
+
+    def retry_play(self):
+        if self.is_playing:
+            self.play_radio()
 
     def on_autostart_change(self, state):
         set_autostart(self.autostart_chk.isChecked())
