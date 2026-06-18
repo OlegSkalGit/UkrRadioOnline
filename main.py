@@ -433,17 +433,12 @@ class UkrRadioApp(QMainWindow):
         self.audio_device_group = QActionGroup(self)
         self.populate_audio_devices()
         
-        # Планувальник
-        sched_menu = menubar.addMenu("Планувальник")
+        settings_menu.addSeparator()
         
         self.sched_enable_action = QAction("Увімкнути розклад (автозапуск/зупинка)", self, checkable=True)
         self.sched_enable_action.setChecked(self.config.get('schedule_enabled', False))
-        self.sched_enable_action.triggered.connect(self.save_current_config)
-        sched_menu.addAction(self.sched_enable_action)
-        
-        self.sched_settings_action = QAction("Налаштувати дні та час...", self)
-        self.sched_settings_action.triggered.connect(self.open_schedule_dialog)
-        sched_menu.addAction(self.sched_settings_action)
+        self.sched_enable_action.toggled.connect(self.on_schedule_toggled)
+        settings_menu.addAction(self.sched_enable_action)
         
         # Довідка
         help_menu = menubar.addMenu("Довідка")
@@ -451,10 +446,10 @@ class UkrRadioApp(QMainWindow):
         about_action.triggered.connect(self.show_help)
         help_menu.addAction(about_action)
         
-        help_menu.addSeparator()
+        # Вихід
         exit_action = QAction("Вихід", self)
         exit_action.triggered.connect(self.quit_app)
-        help_menu.addAction(exit_action)
+        menubar.addAction(exit_action)
 
     def populate_audio_devices(self):
         self.audio_devices_menu.clear()
@@ -764,6 +759,11 @@ class UkrRadioApp(QMainWindow):
     def on_autostart_change(self):
         set_autostart(self.autostart_action.isChecked())
         self.save_current_config()
+
+    def on_schedule_toggled(self, checked):
+        self.save_current_config()
+        if checked:
+            self.open_schedule_dialog()
 
     def save_current_config(self):
         cfg = {
