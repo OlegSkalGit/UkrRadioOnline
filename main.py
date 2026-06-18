@@ -39,25 +39,42 @@ THEMES = {
 CONFIG_FILE = "radio_config.json"
 
 RADIO_STATIONS = {
-    "Українське Радіо": {"high": "https://radio.nrcu.gov.ua:8443/ur1-mp3", "low": "https://radio.nrcu.gov.ua:8443/ur1-mp3-l"},
-    "Радіо Промінь": {"high": "https://radio.nrcu.gov.ua:8443/ur2-mp3", "low": "https://radio.nrcu.gov.ua:8443/ur2-mp3-l"},
-    "Радіо Культура": {"high": "https://radio.nrcu.gov.ua:8443/ur3-mp3", "low": "https://radio.nrcu.gov.ua:8443/ur3-mp3-l"},
-    "Хіт FM": {"high": "https://online.hitfm.ua/HitFM"},
-    "Люкс ФМ": {"high": "https://icecast.luxnet.ua/lux-fm"},
-    "Радіо Максимум": {"high": "https://icecast.luxnet.ua/maximum"}
+    "Українське Радіо": [
+        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3-l"}
+    ],
+    "Радіо Промінь": [
+        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3-l"}
+    ],
+    "Радіо Культура": [
+        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3-l"}
+    ],
+    "Хіт FM": [
+        {"name": "Тест автоперемикання (Неробоче)", "url": "https://online.hitfm.ua/fake_broken_url"},
+        {"name": "Основне", "url": "https://online.hitfm.ua/HitFM"}
+    ],
+    "Люкс ФМ": [
+        {"name": "Основне", "url": "https://icecast.luxnet.ua/lux-fm"}
+    ],
+    "Радіо Максимум": [
+        {"name": "Основне", "url": "https://icecast.luxnet.ua/maximum"}
+    ]
 }
 
 def load_config():
     defaults = {
         'theme': 'dark',
         'station': 'Українське Радіо',
-        'quality': 'high',
+        'source_index': 0,
         'volume': 70,
         'schedule_enabled': False,
         'schedule_days': [0, 1, 2, 3, 4, 5, 6],
         'schedule_start': '08:00',
         'schedule_end': '18:00',
-        'autostart': False
+        'autostart': False,
+        'auto_switch': True
     }
     if os.path.exists(CONFIG_FILE):
         try:
@@ -136,6 +153,9 @@ class UkrRadioApp(QMainWindow):
         self.player.setAudioOutput(self.audio_output)
         self.audio_output.setVolume(self.config.get('volume', 70) / 100.0)
         self.is_playing = False
+        self.ignore_station_change = False
+        
+        self.player.errorOccurred.connect(self.on_player_error)
         
         self.init_ui()
         self.apply_theme()
@@ -181,27 +201,23 @@ class UkrRadioApp(QMainWindow):
         self.station_cb.currentTextChanged.connect(self.on_station_change)
         player_layout.addWidget(self.station_cb)
         
-        lbl_quality = QLabel("Якість:")
-        lbl_quality.setProperty("class", "bold_label")
-        player_layout.addWidget(lbl_quality)
+        lbl_source = QLabel("Джерело потоку:")
+        lbl_source.setProperty("class", "bold_label")
+        player_layout.addWidget(lbl_source)
         
-        quality_layout = QHBoxLayout()
-        self.quality_group = QButtonGroup(self)
-        self.rb_high = QRadioButton("Висока")
-        self.rb_low = QRadioButton("Низька")
-        self.quality_group.addButton(self.rb_high)
-        self.quality_group.addButton(self.rb_low)
-        quality_layout.addWidget(self.rb_high)
-        quality_layout.addWidget(self.rb_low)
-        quality_layout.addStretch()
+        self.source_cb = QComboBox()
+        self.populate_sources()
+        saved_idx = self.config.get('source_index', 0)
+        if saved_idx < self.source_cb.count():
+            self.source_cb.setCurrentIndex(saved_idx)
+        self.source_cb.currentIndexChanged.connect(self.on_source_change)
+        player_layout.addWidget(self.source_cb)
         
-        if self.config.get('quality', 'high') == 'low':
-            self.rb_low.setChecked(True)
-        else:
-            self.rb_high.setChecked(True)
-            
-        self.quality_group.buttonClicked.connect(self.on_station_change)
-        player_layout.addLayout(quality_layout)
+        self.auto_switch_chk = QCheckBox("Автоперемикання джерела при обриві")
+        self.auto_switch_chk.setProperty("class", "bold_label")
+        self.auto_switch_chk.setChecked(self.config.get('auto_switch', True))
+        self.auto_switch_chk.stateChanged.connect(self.save_current_config)
+        player_layout.addWidget(self.auto_switch_chk)
         
         controls_layout = QHBoxLayout()
         self.play_btn = QPushButton("▶ Грати")
@@ -313,9 +329,6 @@ class UkrRadioApp(QMainWindow):
         QCheckBox {{
             background-color: {c['card_bg']};
         }}
-        QRadioButton {{
-            background-color: {c['card_bg']};
-        }}
         QPushButton {{
             background-color: {c['entry_bg']};
             border: none;
@@ -382,12 +395,29 @@ class UkrRadioApp(QMainWindow):
             self.play_btn.style().unpolish(self.play_btn)
             self.play_btn.style().polish(self.play_btn)
 
+    def populate_sources(self):
+        self.ignore_station_change = True
+        self.source_cb.clear()
+        station = self.station_cb.currentText()
+        sources = RADIO_STATIONS.get(station, [])
+        for src in sources:
+            self.source_cb.addItem(src["name"])
+        self.ignore_station_change = False
+
     def toggle_theme(self):
         self.current_theme = 'light' if self.current_theme == 'dark' else 'dark'
         self.apply_theme()
         self.save_current_config()
 
     def on_station_change(self):
+        self.populate_sources()
+        self.save_current_config()
+        if self.is_playing:
+            self.play_radio()
+
+    def on_source_change(self):
+        if self.ignore_station_change:
+            return
         self.save_current_config()
         if self.is_playing:
             self.play_radio()
@@ -404,11 +434,13 @@ class UkrRadioApp(QMainWindow):
 
     def play_radio(self):
         station = self.station_cb.currentText()
-        quality = 'low' if self.rb_low.isChecked() else 'high'
-        urls = RADIO_STATIONS.get(station)
-        if not urls: return
-        url = urls.get(quality) or urls.get('high')
+        idx = self.source_cb.currentIndex()
+        if idx < 0: return
         
+        sources = RADIO_STATIONS.get(station, [])
+        if idx >= len(sources): return
+        
+        url = sources[idx]["url"]
         self.player.setSource(QUrl(url))
         self.player.play()
         self.is_playing = True
@@ -427,23 +459,48 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
 
+    def on_player_error(self, error, error_string):
+        if not self.is_playing:
+            return
+            
+        print(f"Player Error: {error} - {error_string}")
+        
+        if self.auto_switch_chk.isChecked():
+            station = self.station_cb.currentText()
+            sources = RADIO_STATIONS.get(station, [])
+            current_idx = self.source_cb.currentIndex()
+            
+            # Find next source
+            next_idx = current_idx + 1
+            if next_idx < len(sources):
+                self.tray_icon.showMessage("Перемикання джерела", f"Помилка з'єднання. Перемикаємось на '{sources[next_idx]['name']}'.", QSystemTrayIcon.MessageIcon.Warning, 2000)
+                self.source_cb.setCurrentIndex(next_idx)
+                # play_radio is called automatically via on_source_change if is_playing is True
+            else:
+                # No more sources, stop
+                self.tray_icon.showMessage("Помилка відтворення", "Усі джерела недоступні.", QSystemTrayIcon.MessageIcon.Critical, 2000)
+                self.stop_radio()
+        else:
+            self.tray_icon.showMessage("Помилка відтворення", "Помилка відтворення поточного джерела.", QSystemTrayIcon.MessageIcon.Critical, 2000)
+            self.stop_radio()
+
     def on_autostart_change(self, state):
         set_autostart(self.autostart_chk.isChecked())
         self.save_current_config()
 
     def save_current_config(self):
         days = [i for i, chk in enumerate(self.day_chks) if chk.isChecked()]
-        quality = 'low' if self.rb_low.isChecked() else 'high'
         cfg = {
             'theme': self.current_theme,
             'station': self.station_cb.currentText(),
-            'quality': quality,
+            'source_index': self.source_cb.currentIndex(),
             'volume': self.vol_slider.value(),
             'schedule_enabled': self.sched_chk.isChecked(),
             'schedule_days': days,
             'schedule_start': self.start_edit.text(),
             'schedule_end': self.end_edit.text(),
-            'autostart': self.autostart_chk.isChecked()
+            'autostart': self.autostart_chk.isChecked(),
+            'auto_switch': self.auto_switch_chk.isChecked()
         }
         save_config(cfg)
 
