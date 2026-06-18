@@ -1,6 +1,8 @@
 import sys
-import json
 import os
+# Force native Windows Media Foundation backend for Qt6 Multimedia to save size (eliminates FFmpeg DLLs)
+os.environ['QT_MEDIA_BACKEND'] = 'windows'
+import json
 import datetime
 import winreg
 import urllib.request

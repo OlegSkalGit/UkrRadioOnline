@@ -72,7 +72,17 @@ excluded_binaries = {
     'Qt6Svg.dll',
     'qsvgicon.dll',
     'opengl32sw.dll',
-    'd3dcompiler_47.dll'
+    'd3dcompiler_47.dll',
+    # FFmpeg DLLs (no longer needed because we use Windows Media Foundation backend)
+    'avcodec-61.dll',
+    'avformat-61.dll',
+    'avutil-59.dll',
+    'swresample-5.dll',
+    'swscale-8.dll',
+    'ffmpegmediaplugin.dll',
+    # Unneeded TLS backend DLLs (we use native SChannel)
+    'qopensslbackend.dll',
+    'qcertonlybackend.dll'
 }
 
 a.binaries = [x for x in a.binaries if os.path.basename(x[0]).lower() not in {b.lower() for b in excluded_binaries}]
