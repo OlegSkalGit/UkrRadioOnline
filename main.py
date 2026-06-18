@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
                              QMessageBox, QDialog, QDialogButtonBox, QTextBrowser)
-from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal, QEvent
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
@@ -123,6 +123,7 @@ def load_config():
         'auto_switch': True,
         'autoplay': True,
         'autominimize': False,
+        'minimize_to_tray': True,
         'audio_device': ''
     }
     if os.path.exists(CONFIG_FILE):
@@ -428,6 +429,11 @@ class UkrRadioApp(QMainWindow):
         self.autominimize_action.setChecked(self.config.get('autominimize', False))
         self.autominimize_action.triggered.connect(self.save_current_config)
         settings_menu.addAction(self.autominimize_action)
+        
+        self.minimize_to_tray_action = QAction("Згортати в трей при закритті/згортанні", self, checkable=True)
+        self.minimize_to_tray_action.setChecked(self.config.get('minimize_to_tray', True))
+        self.minimize_to_tray_action.triggered.connect(self.save_current_config)
+        settings_menu.addAction(self.minimize_to_tray_action)
         
         self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
         self.audio_device_group = QActionGroup(self)
@@ -776,6 +782,7 @@ class UkrRadioApp(QMainWindow):
             'schedule_end': self.config.get('schedule_end', '18:00'),
             'autostart': self.autostart_action.isChecked(),
             'autominimize': self.autominimize_action.isChecked(),
+            'minimize_to_tray': self.minimize_to_tray_action.isChecked(),
             'auto_switch': self.autoswitch_action.isChecked(),
             'autoplay': self.autoplay_action.isChecked(),
             'audio_device': self.config.get('audio_device', '')
@@ -861,10 +868,20 @@ class UkrRadioApp(QMainWindow):
         except Exception:
             pass
 
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.WindowStateChange:
+            if self.isMinimized() and self.config.get('minimize_to_tray', True):
+                self.hide()
+        super().changeEvent(event)
+
     def closeEvent(self, event):
-        event.ignore()
-        self.hide()
-        self.tray_icon.showMessage("Українське радіо (online)", "Програма згорнута у трей. Радіо продовжує працювати.", QSystemTrayIcon.MessageIcon.Information, 1500)
+        if self.config.get('minimize_to_tray', True):
+            event.ignore()
+            self.hide()
+            if self.tray_icon.isVisible():
+                self.tray_icon.showMessage("Українське радіо", "Програма працює у фоновому режимі.", QSystemTrayIcon.MessageIcon.Information, 1500)
+        else:
+            self.quit_app()
 
     def quit_app(self):
         self.stop_radio()
