@@ -654,7 +654,7 @@ class UkrRadioApp(QMainWindow):
             self.source_cb.setCurrentIndex(current_source_idx)
             
         if added_count > 0:
-            self.tray_icon.showMessage("Плейлисти оновлено", f"Успішно завантажено {added_count} нових інтернет-радіостанцій.", QSystemTrayIcon.MessageIcon.Information, 3000)
+            self.tray_icon.showMessage("Плейлисти оновлено", f"Успішно завантажено {added_count} нових інтернет-радіостанцій.", QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def toggle_theme(self):
         self.current_theme = 'light' if self.current_theme == 'dark' else 'dark'
@@ -723,13 +723,13 @@ class UkrRadioApp(QMainWindow):
         
         if self.autoswitch_action.isChecked() and len(sources) > 1:
             next_idx = (current_idx + 1) % len(sources)
-            self.tray_icon.showMessage("Обрив зв'язку", f"Перемикаємось на '{sources[next_idx]['name']}' (через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 2000)
+            self.tray_icon.showMessage("Обрив зв'язку", f"Перемикаємось на '{sources[next_idx]['name']}' (через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 1500)
             self.ignore_station_change = True
             self.source_cb.setCurrentIndex(next_idx)
             self.save_current_config()
             self.ignore_station_change = False
         else:
-            self.tray_icon.showMessage("Обрив зв'язку", "Очікуємо на відновлення з'єднання (повтор через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 2000)
+            self.tray_icon.showMessage("Обрив зв'язку", "Очікуємо на відновлення з'єднання (повтор через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 1500)
             
         QTimer.singleShot(5000, self.retry_play)
 
@@ -827,7 +827,7 @@ class UkrRadioApp(QMainWindow):
     def closeEvent(self, event):
         event.ignore()
         self.hide()
-        self.tray_icon.showMessage("Українське радіо (online)", "Програма згорнута у трей. Радіо продовжує працювати.", QSystemTrayIcon.MessageIcon.Information, 2000)
+        self.tray_icon.showMessage("Українське радіо (online)", "Програма згорнута у трей. Радіо продовжує працювати.", QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def quit_app(self):
         self.stop_radio()
@@ -841,8 +841,8 @@ if __name__ == "__main__":
     if not shared_mem.create(1):
         tray = QSystemTrayIcon(create_icon())
         tray.show()
-        tray.showMessage("Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 3000)
-        QTimer.singleShot(3000, app.quit)
+        tray.showMessage("Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 1500)
+        QTimer.singleShot(1500, app.quit)
         sys.exit(app.exec())
         
     window = UkrRadioApp()
