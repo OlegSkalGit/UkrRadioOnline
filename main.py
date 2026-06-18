@@ -6,12 +6,13 @@ import winreg
 import urllib.request
 import re
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QLabel, QComboBox, QRadioButton, 
+                             QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
-                             QSystemTrayIcon, QMenu, QGroupBox, QButtonGroup)
-from PyQt6.QtCore import Qt, QTimer, QUrl, QTime, QThread, pyqtSignal
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction
+                             QSystemTrayIcon, QMenu, QGroupBox,
+                             QMessageBox, QDialog, QDialogButtonBox)
+from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
 
 THEMES = {
     'dark': {
@@ -23,7 +24,10 @@ THEMES = {
         'accent': '#89b4fa',
         'accent_hover': '#b4befe',
         'accent_text': '#11111b',
-        'error': '#f38ba8'
+        'error': '#f38ba8',
+        'menu_bg': '#1e1e2e',
+        'menu_fg': '#cdd6f4',
+        'menu_sel': '#313244'
     },
     'light': {
         'bg': '#f4f4f7',
@@ -34,7 +38,10 @@ THEMES = {
         'accent': '#3f51b5',
         'accent_hover': '#5c6bc0',
         'accent_text': '#ffffff',
-        'error': '#d32f2f'
+        'error': '#d32f2f',
+        'menu_bg': '#ffffff',
+        'menu_fg': '#1e1e2e',
+        'menu_sel': '#e6e6ea'
     }
 }
 
@@ -112,7 +119,9 @@ def load_config():
         'schedule_start': '08:00',
         'schedule_end': '18:00',
         'autostart': False,
-        'auto_switch': True
+        'auto_switch': True,
+        'autoplay': True,
+        'audio_device': ''
     }
     if os.path.exists(CONFIG_FILE):
         try:
@@ -180,18 +189,14 @@ class PlaylistFetcher(QThread):
     
     def run(self):
         new_stations = {}
-        
-        # 1. iptv.org.ua/iptv/radio.m3u
         try:
             req = urllib.request.Request('https://iptv.org.ua/iptv/radio.m3u', headers={'User-Agent':'Mozilla/5.0'})
             response = urllib.request.urlopen(req, timeout=10)
             content = response.read().decode('utf-8', errors='ignore').splitlines()
-            
             current_name = None
             for line in content:
                 line = line.strip()
                 if line.startswith("#EXTINF"):
-                    # Extract name after last comma
                     parts = line.split(',')
                     if len(parts) > 1:
                         current_name = parts[-1].strip()
@@ -200,42 +205,86 @@ class PlaylistFetcher(QThread):
                         new_stations[current_name] = []
                     new_stations[current_name].append({"name": f"[IPTV] Джерело {len(new_stations[current_name]) + 1}", "url": line})
                     current_name = None
-        except Exception as e:
-            print("Error loading iptv.org.ua playlist:", e)
+        except Exception:
+            pass
             
-        # 2. opencartbot page m3u8 links
         try:
             req = urllib.request.Request('https://tech.opencartbot.com/instructions/ua-online-radio-playlist', headers={'User-Agent':'Mozilla/5.0'})
             response = urllib.request.urlopen(req, timeout=10)
             content = response.read().decode('utf-8', errors='ignore')
             links = re.findall(r'href=\"([^\"]+)\"', content)
             m3u_links = [l for l in links if '.m3u' in l]
-            
             if m3u_links:
                 if "Opencartbot Збірка" not in new_stations:
                     new_stations["Opencartbot Збірка"] = []
                 for idx, link in enumerate(set(m3u_links)):
-                    # try to extract a name from URL
                     parts = link.split('/')
                     name = parts[-2] if len(parts) > 2 else f"Джерело {idx+1}"
                     new_stations["Opencartbot Збірка"].append({"name": f"[OCB] {name}", "url": link})
-        except Exception as e:
-            print("Error loading opencartbot playlist:", e)
+        except Exception:
+            pass
             
         self.playlistsLoaded.emit(new_stations)
+
+
+class ScheduleDialog(QDialog):
+    def __init__(self, parent=None, config=None):
+        super().__init__(parent)
+        self.setWindowTitle("Налаштування розкладу")
+        self.config = config
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        
+        days_layout = QHBoxLayout()
+        days_layout.addWidget(QLabel("Дні:"))
+        self.day_chks = []
+        days_lbl = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
+        saved_days = self.config.get('schedule_days', [0,1,2,3,4,5,6])
+        for i, d in enumerate(days_lbl):
+            chk = QCheckBox(d)
+            chk.setChecked(i in saved_days)
+            self.day_chks.append(chk)
+            days_layout.addWidget(chk)
+        layout.addLayout(days_layout)
+        
+        time_layout = QHBoxLayout()
+        time_layout.addWidget(QLabel("Час (З - По):"))
+        self.start_edit = QLineEdit(self.config.get('schedule_start', '08:00'))
+        self.start_edit.setFixedWidth(60)
+        self.start_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.end_edit = QLineEdit(self.config.get('schedule_end', '18:00'))
+        self.end_edit.setFixedWidth(60)
+        self.end_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        time_layout.addWidget(self.start_edit)
+        time_layout.addWidget(QLabel("-"))
+        time_layout.addWidget(self.end_edit)
+        layout.addLayout(time_layout)
+        
+        note_lbl = QLabel("Формат: ГГ:ХХ (наприклад, 08:00 - 18:00)")
+        layout.addWidget(note_lbl)
+        
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btn_box.accepted.connect(self.accept)
+        btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
+
+    def get_data(self):
+        days = [i for i, chk in enumerate(self.day_chks) if chk.isChecked()]
+        return days, self.start_edit.text(), self.end_edit.text()
 
 
 class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Українське радіо (online)")
-        self.setFixedSize(500, 560)
+        self.setFixedSize(500, 250)
         self.setWindowIcon(create_icon())
         
         self.config = load_config()
         self.current_theme = self.config.get('theme', 'dark')
         
-        # Audio Player
         self.player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.player.setAudioOutput(self.audio_output)
@@ -249,17 +298,17 @@ class UkrRadioApp(QMainWindow):
         self.apply_theme()
         self.setup_tray()
         
-        # Start fetching dynamic playlists
         self.fetcher = PlaylistFetcher()
         self.fetcher.playlistsLoaded.connect(self.on_playlists_loaded)
         self.fetcher.start()
         
-        # Scheduler Timer
         self.scheduler_timer = QTimer(self)
         self.scheduler_timer.timeout.connect(self.check_schedule)
-        self.scheduler_timer.start(30000) # Check every 30 seconds
+        self.scheduler_timer.start(30000)
         
     def init_ui(self):
+        self.create_menu()
+        
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
@@ -272,10 +321,6 @@ class UkrRadioApp(QMainWindow):
         self.title_lbl.setProperty("class", "header_title")
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
-        self.theme_btn = QPushButton("Тема")
-        self.theme_btn.setProperty("class", "theme_btn")
-        self.theme_btn.clicked.connect(self.toggle_theme)
-        header_layout.addWidget(self.theme_btn)
         main_layout.addLayout(header_layout)
         
         # Player Card
@@ -288,14 +333,11 @@ class UkrRadioApp(QMainWindow):
         lbl_station.setProperty("class", "bold_label")
         player_layout.addWidget(lbl_station)
         
-        # Station ComboBox
         self.station_cb = QComboBox()
         self.station_cb.addItems(list(RADIO_STATIONS.keys()))
-        
         saved_station = self.config.get('station', 'Радіо Промінь')
         if saved_station in RADIO_STATIONS:
             self.station_cb.setCurrentText(saved_station)
-            
         self.station_cb.currentTextChanged.connect(self.on_station_change)
         player_layout.addWidget(self.station_cb)
         
@@ -310,12 +352,6 @@ class UkrRadioApp(QMainWindow):
             self.source_cb.setCurrentIndex(saved_idx)
         self.source_cb.currentIndexChanged.connect(self.on_source_change)
         player_layout.addWidget(self.source_cb)
-        
-        self.auto_switch_chk = QCheckBox("Автоперемикання джерела при обриві")
-        self.auto_switch_chk.setProperty("class", "bold_label")
-        self.auto_switch_chk.setChecked(self.config.get('auto_switch', True))
-        self.auto_switch_chk.stateChanged.connect(self.save_current_config)
-        player_layout.addWidget(self.auto_switch_chk)
         
         controls_layout = QHBoxLayout()
         self.play_btn = QPushButton("▶ Грати")
@@ -335,61 +371,121 @@ class UkrRadioApp(QMainWindow):
         
         player_layout.addLayout(controls_layout)
         main_layout.addWidget(self.player_card)
-        
-        # Schedule Card
-        self.schedule_card = QGroupBox()
-        self.schedule_card.setProperty("class", "card")
-        schedule_layout = QVBoxLayout(self.schedule_card)
-        schedule_layout.setSpacing(10)
-        
-        self.sched_chk = QCheckBox("Увімкнути розклад (авто-запуск/зупинка)")
-        self.sched_chk.setProperty("class", "bold_label")
-        self.sched_chk.setChecked(self.config.get('schedule_enabled', False))
-        self.sched_chk.stateChanged.connect(self.save_current_config)
-        schedule_layout.addWidget(self.sched_chk)
-        
-        self.autostart_chk = QCheckBox("Автозапуск програми разом із Windows")
-        self.autostart_chk.setProperty("class", "bold_label")
-        self.autostart_chk.setChecked(check_autostart())
-        self.autostart_chk.stateChanged.connect(self.on_autostart_change)
-        schedule_layout.addWidget(self.autostart_chk)
-        
-        days_layout = QHBoxLayout()
-        days_layout.addWidget(QLabel("Дні:"))
-        self.day_chks = []
-        days_lbl = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
-        saved_days = self.config.get('schedule_days', [0,1,2,3,4,5,6])
-        for i, d in enumerate(days_lbl):
-            chk = QCheckBox(d)
-            chk.setChecked(i in saved_days)
-            chk.stateChanged.connect(self.save_current_config)
-            self.day_chks.append(chk)
-            days_layout.addWidget(chk)
-        days_layout.addStretch()
-        schedule_layout.addLayout(days_layout)
-        
-        time_layout = QHBoxLayout()
-        time_layout.addWidget(QLabel("Час (З - По):"))
-        self.start_edit = QLineEdit(self.config.get('schedule_start', '08:00'))
-        self.start_edit.setFixedWidth(60)
-        self.start_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.end_edit = QLineEdit(self.config.get('schedule_end', '18:00'))
-        self.end_edit.setFixedWidth(60)
-        self.end_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.start_edit.textChanged.connect(self.save_current_config)
-        self.end_edit.textChanged.connect(self.save_current_config)
-        time_layout.addWidget(self.start_edit)
-        time_layout.addWidget(QLabel("-"))
-        time_layout.addWidget(self.end_edit)
-        time_layout.addStretch()
-        schedule_layout.addLayout(time_layout)
-        
-        note_lbl = QLabel("Формат: ГГ:ХХ (наприклад, 08:00 - 18:00)")
-        note_lbl.setProperty("class", "subtext")
-        schedule_layout.addWidget(note_lbl)
-        
-        main_layout.addWidget(self.schedule_card)
         main_layout.addStretch()
+
+    def create_menu(self):
+        menubar = self.menuBar()
+        
+        # Налаштування
+        settings_menu = menubar.addMenu("Налаштування")
+        
+        self.theme_action = QAction("Темна тема" if self.current_theme == 'light' else "Світла тема", self)
+        self.theme_action.triggered.connect(self.toggle_theme)
+        settings_menu.addAction(self.theme_action)
+        
+        self.autoplay_action = QAction("Автопрогравання при виборі станції", self, checkable=True)
+        self.autoplay_action.setChecked(self.config.get('autoplay', True))
+        self.autoplay_action.triggered.connect(self.save_current_config)
+        settings_menu.addAction(self.autoplay_action)
+        
+        self.autoswitch_action = QAction("Автоперемикання джерела при обриві", self, checkable=True)
+        self.autoswitch_action.setChecked(self.config.get('auto_switch', True))
+        self.autoswitch_action.triggered.connect(self.save_current_config)
+        settings_menu.addAction(self.autoswitch_action)
+        
+        self.autostart_action = QAction("Автозапуск з Windows", self, checkable=True)
+        self.autostart_action.setChecked(check_autostart())
+        self.autostart_action.triggered.connect(self.on_autostart_change)
+        settings_menu.addAction(self.autostart_action)
+        
+        self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
+        self.audio_device_group = QActionGroup(self)
+        self.populate_audio_devices()
+        
+        # Планувальник
+        sched_menu = menubar.addMenu("Планувальник")
+        
+        self.sched_enable_action = QAction("Увімкнути розклад (автозапуск/зупинка)", self, checkable=True)
+        self.sched_enable_action.setChecked(self.config.get('schedule_enabled', False))
+        self.sched_enable_action.triggered.connect(self.save_current_config)
+        sched_menu.addAction(self.sched_enable_action)
+        
+        self.sched_settings_action = QAction("Налаштувати дні та час...", self)
+        self.sched_settings_action.triggered.connect(self.open_schedule_dialog)
+        sched_menu.addAction(self.sched_settings_action)
+        
+        # Довідка
+        help_menu = menubar.addMenu("Довідка")
+        about_action = QAction("Про програму...", self)
+        about_action.triggered.connect(self.show_help)
+        help_menu.addAction(about_action)
+
+    def populate_audio_devices(self):
+        self.audio_devices_menu.clear()
+        
+        default_action = QAction("Системний за замовчуванням", self, checkable=True)
+        default_action.setData("")
+        self.audio_device_group.addAction(default_action)
+        self.audio_devices_menu.addAction(default_action)
+        
+        saved_device = self.config.get('audio_device', '')
+        has_matched = False
+        
+        for device in QMediaDevices.audioOutputs():
+            desc = device.description()
+            action = QAction(desc, self, checkable=True)
+            action.setData(device.id())
+            self.audio_device_group.addAction(action)
+            self.audio_devices_menu.addAction(action)
+            
+            if saved_device and saved_device == bytearray(device.id()).decode('utf-8', 'ignore'):
+                action.setChecked(True)
+                self.audio_output.setDevice(device)
+                has_matched = True
+                
+        if not has_matched:
+            default_action.setChecked(True)
+            self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
+            
+        self.audio_device_group.triggered.connect(self.on_audio_device_changed)
+
+    def on_audio_device_changed(self, action):
+        device_id = action.data()
+        self.config['audio_device'] = bytearray(device_id).decode('utf-8', 'ignore') if device_id else ""
+        
+        if not device_id:
+            self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
+        else:
+            for device in QMediaDevices.audioOutputs():
+                if device.id() == device_id:
+                    self.audio_output.setDevice(device)
+                    break
+        self.save_current_config()
+
+    def open_schedule_dialog(self):
+        dialog = ScheduleDialog(self, self.config)
+        # Apply current theme to dialog
+        dialog.setStyleSheet(self.styleSheet())
+        if dialog.exec():
+            days, start_t, end_t = dialog.get_data()
+            self.config['schedule_days'] = days
+            self.config['schedule_start'] = start_t
+            self.config['schedule_end'] = end_t
+            self.save_current_config()
+
+    def show_help(self):
+        QMessageBox.information(self, "Довідка", 
+            "Українське радіо (online)\n\n"
+            "Зручний програвач для прослуховування українських інтернет-радіостанцій.\n"
+            "Особливості:\n"
+            "- Динамічне завантаження сотень станцій з мережі\n"
+            "- Планувальник для авто-ввімкнення та вимкнення\n"
+            "- Автоматичне перемикання при обриві зв'язку\n"
+            "- Робота у системному треї (фоновий режим)\n"
+            "- Вибір аудіо-пристрою для відтворення\n\n"
+            "Щоб програма не заважала на панелі завдань, просто згорніть її або "
+            "закрийте вікно хрестиком – вона продовжить працювати у треї.\n\n"
+            "Автор: Олег Скалацький")
 
     def apply_theme(self):
         c = THEMES[self.current_theme]
@@ -399,6 +495,21 @@ class UkrRadioApp(QMainWindow):
             color: {c['text']};
             font-family: 'Segoe UI';
             font-size: 14px;
+        }}
+        QMenuBar {{
+            background-color: {c['menu_bg']};
+            color: {c['menu_fg']};
+        }}
+        QMenuBar::item:selected {{
+            background-color: {c['menu_sel']};
+        }}
+        QMenu {{
+            background-color: {c['menu_bg']};
+            color: {c['menu_fg']};
+            border: 1px solid {c['menu_sel']};
+        }}
+        QMenu::item:selected {{
+            background-color: {c['menu_sel']};
         }}
         QGroupBox.card {{
             background-color: {c['card_bg']};
@@ -416,16 +527,11 @@ class UkrRadioApp(QMainWindow):
             font-weight: bold;
             background-color: {c['card_bg']};
         }}
-        QLabel.subtext {{
-            font-size: 12px;
-            color: {c['subtext']};
-            background-color: {c['card_bg']};
-        }}
         QLabel {{
-            background-color: {c['card_bg']};
+            background-color: transparent;
         }}
         QCheckBox {{
-            background-color: {c['card_bg']};
+            background-color: transparent;
         }}
         QPushButton {{
             background-color: {c['entry_bg']};
@@ -435,13 +541,6 @@ class UkrRadioApp(QMainWindow):
         }}
         QPushButton:hover {{
             background-color: {c['bg']};
-        }}
-        QPushButton.theme_btn {{
-            background-color: {c['bg']};
-            padding: 6px 12px;
-        }}
-        QPushButton.theme_btn:hover {{
-            background-color: {c['card_bg']};
         }}
         QPushButton.primary_btn {{
             background-color: {c['accent']};
@@ -488,6 +587,8 @@ class UkrRadioApp(QMainWindow):
         """
         self.setStyleSheet(qss)
         
+        self.theme_action.setText("Темна тема" if self.current_theme == 'light' else "Світла тема")
+        
         if self.is_playing:
             self.play_btn.setProperty("class", "error_btn")
             self.play_btn.style().unpolish(self.play_btn)
@@ -503,20 +604,16 @@ class UkrRadioApp(QMainWindow):
         self.ignore_station_change = False
 
     def on_playlists_loaded(self, new_stations):
-        # Merge new stations into the global dictionary
         added_count = 0
         for name, sources in new_stations.items():
             if name in RADIO_STATIONS:
-                # Append new sources to existing station
                 for src in sources:
                     if src['url'] not in [s['url'] for s in RADIO_STATIONS[name]]:
                         RADIO_STATIONS[name].append(src)
             else:
-                # Add entirely new station
                 RADIO_STATIONS[name] = sources
                 added_count += 1
                 
-        # Update the station combo box with new items (without replacing current selection)
         if added_count > 0:
             current_station = self.station_cb.currentText()
             self.station_cb.blockSignals(True)
@@ -525,7 +622,6 @@ class UkrRadioApp(QMainWindow):
             self.station_cb.setCurrentText(current_station)
             self.station_cb.blockSignals(False)
             
-        # Repopulate current sources just in case the current station received new sources
         current_source_idx = self.source_cb.currentIndex()
         self.populate_sources()
         if current_source_idx < self.source_cb.count():
@@ -542,14 +638,14 @@ class UkrRadioApp(QMainWindow):
     def on_station_change(self):
         self.populate_sources()
         self.save_current_config()
-        if self.is_playing:
+        if self.is_playing or self.config.get('autoplay', True):
             self.play_radio()
 
     def on_source_change(self):
         if self.ignore_station_change:
             return
         self.save_current_config()
-        if self.is_playing:
+        if self.is_playing or self.config.get('autoplay', True):
             self.play_radio()
 
     def on_volume_change(self, val):
@@ -599,7 +695,7 @@ class UkrRadioApp(QMainWindow):
         sources = RADIO_STATIONS.get(station, [])
         current_idx = self.source_cb.currentIndex()
         
-        if self.auto_switch_chk.isChecked() and len(sources) > 1:
+        if self.autoswitch_action.isChecked() and len(sources) > 1:
             next_idx = (current_idx + 1) % len(sources)
             self.tray_icon.showMessage("Обрив зв'язку", f"Перемикаємось на '{sources[next_idx]['name']}' (через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 2000)
             self.ignore_station_change = True
@@ -609,44 +705,45 @@ class UkrRadioApp(QMainWindow):
         else:
             self.tray_icon.showMessage("Обрив зв'язку", "Очікуємо на відновлення з'єднання (повтор через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 2000)
             
-        # Try to reconnect after 5 seconds to prevent infinite instant-fail loops
         QTimer.singleShot(5000, self.retry_play)
 
     def retry_play(self):
         if self.is_playing:
             self.play_radio()
 
-    def on_autostart_change(self, state):
-        set_autostart(self.autostart_chk.isChecked())
+    def on_autostart_change(self):
+        set_autostart(self.autostart_action.isChecked())
         self.save_current_config()
 
     def save_current_config(self):
-        days = [i for i, chk in enumerate(self.day_chks) if chk.isChecked()]
         cfg = {
             'theme': self.current_theme,
             'station': self.station_cb.currentText(),
             'source_index': self.source_cb.currentIndex(),
             'volume': self.vol_slider.value(),
-            'schedule_enabled': self.sched_chk.isChecked(),
-            'schedule_days': days,
-            'schedule_start': self.start_edit.text(),
-            'schedule_end': self.end_edit.text(),
-            'autostart': self.autostart_chk.isChecked(),
-            'auto_switch': self.auto_switch_chk.isChecked()
+            'schedule_enabled': self.sched_enable_action.isChecked(),
+            'schedule_days': self.config.get('schedule_days', [0,1,2,3,4,5,6]),
+            'schedule_start': self.config.get('schedule_start', '08:00'),
+            'schedule_end': self.config.get('schedule_end', '18:00'),
+            'autostart': self.autostart_action.isChecked(),
+            'auto_switch': self.autoswitch_action.isChecked(),
+            'autoplay': self.autoplay_action.isChecked(),
+            'audio_device': self.config.get('audio_device', '')
         }
         save_config(cfg)
+        self.config = cfg
 
     def check_schedule(self):
-        if not self.sched_chk.isChecked():
+        if not self.config.get('schedule_enabled', False):
             return
             
         now = datetime.datetime.now()
         current_day = now.weekday()
-        days = [i for i, chk in enumerate(self.day_chks) if chk.isChecked()]
+        days = self.config.get('schedule_days', [])
         
         if current_day in days:
-            start_str = self.start_edit.text().strip()
-            end_str = self.end_edit.text().strip()
+            start_str = self.config.get('schedule_start', '08:00')
+            end_str = self.config.get('schedule_end', '18:00')
             
             try:
                 t_start = datetime.datetime.strptime(start_str, "%H:%M").time()
