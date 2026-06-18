@@ -62,7 +62,7 @@ echo ========================================================
 echo.
 
 REM 3. Compile with PyInstaller using the spec file
-".venv\Scripts\pyinstaller" --upx-dir="upx-win64" UkrRadioOnline.spec
+".venv\Scripts\python.exe" -m PyInstaller --upx-dir="upx-win64" UkrRadioOnline.spec
 
 if %ERRORLEVEL% neq 0 (
     echo.

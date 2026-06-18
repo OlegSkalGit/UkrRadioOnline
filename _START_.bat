@@ -64,7 +64,7 @@ REM 3. Перевірка наявності необхідних бібліотек
 ".venv\Scripts\python.exe" -c "import PyQt6" >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo Необхідні бібліотеки Python НЕ знайдено у проекті. Завантажуємо і встановлюємо...
-    ".venv\Scripts\python.exe" -m pip install PyQt6>=6.6.0
+    ".venv\Scripts\python.exe" -m pip install "PyQt6>=6.6.0"
 
     if !ERRORLEVEL! neq 0 (
         echo.
