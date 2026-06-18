@@ -78,6 +78,9 @@ echo ========================================================
 echo.
 echo Executable is located at: dist\UkrRadioOnline.exe
 echo.
+echo Copying README.md to dist directory...
+copy /y "README.md" "dist\" >nul
+echo.
 echo Cleaning temporary build files...
 if exist "build" rd /s /q "build"
 echo Cleanup complete.
