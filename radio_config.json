@@ -1,0 +1,18 @@
+{
+    "theme": "dark",
+    "station": "Радіо Промінь",
+    "quality": "high",
+    "volume": 70,
+    "schedule_enabled": true,
+    "schedule_days": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+    ],
+    "schedule_start": "08:00",
+    "schedule_end": "17:00"
+}

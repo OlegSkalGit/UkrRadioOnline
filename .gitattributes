@@ -10,7 +10,6 @@
 *.md text
 *.txt text
 *.json text
-LICENSE text
 .gitattributes text
 
 # Denote binary files (prevent git from modifying their line endings)
@@ -22,3 +21,6 @@ LICENSE text
 *.mov binary
 *.mp3 binary
 *.wav binary
+
+.gitattributes export-ignore
+.gitignore export-ignore
