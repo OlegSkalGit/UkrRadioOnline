@@ -51,16 +51,16 @@ CONFIG_FILE = "radio_config.json"
 # Basic list of stations
 RADIO_STATIONS = {
     "Радіо Промінь": [
-        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3"},
-        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3-l"}
+        {"name": "Основне (Висока якість)", "url": "https://radio.ukr.radio/ur2-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.ukr.radio/ur2-mp3-m"}
     ],
     "Українське Радіо": [
-        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3"},
-        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3-l"}
+        {"name": "Основне (Висока якість)", "url": "https://radio.ukr.radio/ur1-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.ukr.radio/ur1-mp3-m"}
     ],
     "Радіо Культура": [
-        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3"},
-        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3-l"}
+        {"name": "Основне (Висока якість)", "url": "https://radio.ukr.radio/ur3-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.ukr.radio/ur3-mp3-m"}
     ],
     "Радіо Україна (Всесвітня служба)": [
         {"name": "Основне", "url": "https://radio.ukr.radio/ur4-mp3"}
