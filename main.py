@@ -839,8 +839,11 @@ if __name__ == "__main__":
     
     shared_mem = QSharedMemory("UkrRadioOnline_SingleInstance")
     if not shared_mem.create(1):
-        QMessageBox.warning(None, "Увага", "Програма вже запущена!")
-        sys.exit(0)
+        tray = QSystemTrayIcon(create_icon())
+        tray.show()
+        tray.showMessage("Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 3000)
+        QTimer.singleShot(3000, app.quit)
+        sys.exit(app.exec())
         
     window = UkrRadioApp()
     window.show()
