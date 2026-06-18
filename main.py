@@ -416,12 +416,13 @@ class UkrRadioApp(QMainWindow):
     def create_menu(self):
         menubar = self.menuBar()
         
-        # Налаштування
-        settings_menu = menubar.addMenu("Налаштування")
-        
+        # Перемикання тем
         self.theme_action = QAction("Темна тема" if self.current_theme == 'light' else "Світла тема", self)
         self.theme_action.triggered.connect(self.toggle_theme)
-        settings_menu.addAction(self.theme_action)
+        menubar.addAction(self.theme_action)
+        
+        # Налаштування
+        settings_menu = menubar.addMenu("Налаштування")
         
         self.autoplay_action = QAction("Автопрогравання", self, checkable=True)
         self.autoplay_action.setChecked(self.config.get('autoplay', True))
