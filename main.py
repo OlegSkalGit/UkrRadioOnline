@@ -277,6 +277,19 @@ class ScheduleDialog(QDialog):
         days = [i for i, chk in enumerate(self.day_chks) if chk.isChecked()]
         return days, self.start_edit.text(), self.end_edit.text()
 
+    def accept(self):
+        days, start_t, end_t = self.get_data()
+        try:
+            t_start = datetime.datetime.strptime(start_t, "%H:%M").time()
+            t_end = datetime.datetime.strptime(end_t, "%H:%M").time()
+            if t_start == t_end:
+                QMessageBox.warning(self, "Помилка розкладу", "Час початку та закінчення не можуть співпадати!")
+                return
+        except ValueError:
+            QMessageBox.warning(self, "Помилка розкладу", "Некоректний формат часу! Використовуйте формат ГГ:ХХ (наприклад, 08:00).")
+            return
+        super().accept()
+
 
 class UkrRadioApp(QMainWindow):
     def __init__(self):
@@ -446,6 +459,10 @@ class UkrRadioApp(QMainWindow):
         self.sched_enable_action.toggled.connect(self.on_schedule_toggled)
         settings_menu.addAction(self.sched_enable_action)
         
+        self.sched_config_action = QAction("Налаштувати час розкладу...", self)
+        self.sched_config_action.triggered.connect(self.open_schedule_dialog)
+        settings_menu.addAction(self.sched_config_action)
+        
         # Довідка
         help_action = QAction("Довідка", self)
         help_action.triggered.connect(self.show_help)
@@ -508,6 +525,9 @@ class UkrRadioApp(QMainWindow):
             self.config['schedule_start'] = start_t
             self.config['schedule_end'] = end_t
             self.save_current_config()
+            self.check_schedule()
+        elif self.config.get('schedule_enabled', False):
+            self.check_schedule()
 
     def show_help(self):
         try:
@@ -706,9 +726,19 @@ class UkrRadioApp(QMainWindow):
         if self.is_playing:
             self.stop_radio()
         else:
-            self.play_radio()
+            self.play_radio(show_warning=True)
 
-    def play_radio(self):
+    def play_radio(self, show_warning=False):
+        if not self.is_in_schedule_range():
+            if show_warning:
+                QMessageBox.information(
+                    self, 
+                    "Обмеження розкладу", 
+                    "Не вдалося запустити відтворення:\nЗараз час поза межами активного розкладу."
+                )
+            self.stop_radio()
+            return
+            
         station = self.station_cb.currentText()
         idx = self.source_cb.currentIndex()
         if idx < 0: return
@@ -790,35 +820,52 @@ class UkrRadioApp(QMainWindow):
         save_config(cfg)
         self.config = cfg
 
-    def check_schedule(self):
+    def is_in_schedule_range(self):
         if not self.config.get('schedule_enabled', False):
-            return
+            return True
             
         now = datetime.datetime.now()
         current_day = now.weekday()
         days = self.config.get('schedule_days', [])
         
-        if current_day in days:
-            start_str = self.config.get('schedule_start', '08:00')
-            end_str = self.config.get('schedule_end', '18:00')
+        start_str = self.config.get('schedule_start', '08:00')
+        end_str = self.config.get('schedule_end', '18:00')
+        
+        try:
+            t_start = datetime.datetime.strptime(start_str, "%H:%M").time()
+            t_end = datetime.datetime.strptime(end_str, "%H:%M").time()
+            current_time = now.time()
             
-            try:
-                t_start = datetime.datetime.strptime(start_str, "%H:%M").time()
-                t_end = datetime.datetime.strptime(end_str, "%H:%M").time()
-                current_time = now.time()
-                
-                is_in_schedule = False
+            # 1. Check if we match today's schedule
+            if current_day in days:
                 if t_start < t_end:
-                    is_in_schedule = t_start <= current_time <= t_end
-                else:
-                    is_in_schedule = current_time >= t_start or current_time <= t_end
-                    
-                if is_in_schedule and not self.is_playing:
-                    self.play_radio()
-                elif not is_in_schedule and self.is_playing:
-                    self.stop_radio()
-            except ValueError:
-                pass
+                    if t_start <= current_time <= t_end:
+                        return True
+                elif t_start > t_end:
+                    if current_time >= t_start:
+                        return True
+            
+            # 2. Check if we match yesterday's overnight schedule
+            yesterday = (current_day - 1) % 7
+            if yesterday in days:
+                if t_start > t_end:
+                    if current_time <= t_end:
+                        return True
+        except ValueError:
+            pass
+            
+        return False
+
+    def check_schedule(self):
+        if not self.config.get('schedule_enabled', False):
+            return
+            
+        is_in_schedule = self.is_in_schedule_range()
+                
+        if is_in_schedule and not self.is_playing:
+            self.play_radio()
+        elif not is_in_schedule and self.is_playing:
+            self.stop_radio()
 
     def setup_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
@@ -831,7 +878,7 @@ class UkrRadioApp(QMainWindow):
         tray_menu.addAction(show_action)
         
         play_action = QAction("Грати", self)
-        play_action.triggered.connect(self.play_radio)
+        play_action.triggered.connect(lambda: self.play_radio(show_warning=True))
         tray_menu.addAction(play_action)
         
         stop_action = QAction("Зупинити", self)
