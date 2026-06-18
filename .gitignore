@@ -27,7 +27,6 @@ log.txt
 # PyInstaller builds
 dist/
 build/
-*.spec
 upx-win64/
 
 # User recordings

@@ -1,5 +1,6 @@
 @echo off
 cd /d "%~dp0"
+chcp 1251 > nul
 
 title UkrRadioOnline Compiler
 echo ========================================================
@@ -26,8 +27,32 @@ if %ERRORLEVEL% neq 0 (
         pause
         exit /b 1
     )
-) else (
-    echo PyInstaller is already installed.
+)
+
+REM 2.5. Check and set up UPX if missing
+if not exist "upx-win64" (
+    echo.
+    echo ========================================================
+    echo  UPX compiler not found. Downloading UPX v5.2.0...
+    echo ========================================================
+    powershell -Command "Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/upx/upx/releases/download/v5.2.0/upx-5.2.0-win64.zip' -OutFile 'upx.zip'"
+    if errorlevel 1 (
+        echo.
+        echo [WARNING] Failed to download UPX. Compilation will proceed without UPX compression.
+        echo.
+    ) else (
+        echo Extracting UPX...
+        powershell -Command "Expand-Archive -Path 'upx.zip' -DestinationPath '.'"
+        if exist "upx-5.2.0-win64" (
+            ren "upx-5.2.0-win64" "upx-win64"
+            echo UPX installed successfully.
+        ) else (
+            echo.
+            echo [WARNING] Extraction folder not found. Compilation will proceed without UPX.
+            echo.
+        )
+        if exist "upx.zip" del /f /q "upx.zip"
+    )
 )
 
 echo.
@@ -36,8 +61,8 @@ echo  Starting compilation...
 echo ========================================================
 echo.
 
-REM 3. Compile with PyInstaller
-".venv\Scripts\pyinstaller" --onefile --windowed --name="UkrRadioOnline" --upx-dir="upx-win64" --exclude-module PyQt6.QtWebEngineCore --exclude-module PyQt6.QtWebEngineWidgets --exclude-module PyQt6.QtSql --exclude-module PyQt6.QtXml --exclude-module PyQt6.Qt3D --exclude-module PyQt6.QtDesigner main.py
+REM 3. Compile with PyInstaller using the spec file
+".venv\Scripts\pyinstaller" --upx-dir="upx-win64" UkrRadioOnline.spec
 
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -55,7 +80,6 @@ echo Executable is located at: dist\UkrRadioOnline.exe
 echo.
 echo Cleaning temporary build files...
 if exist "build" rd /s /q "build"
-if exist "UkrRadioOnline.spec" del /f /q "UkrRadioOnline.spec"
 echo Cleanup complete.
 echo.
 pause
