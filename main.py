@@ -771,8 +771,7 @@ class UkrRadioApp(QMainWindow):
                     is_in_schedule = current_time >= t_start or current_time <= t_end
                     
                 if is_in_schedule and not self.is_playing:
-                    if self.config.get('autoplay', True):
-                        self.play_radio()
+                    self.play_radio()
                 elif not is_in_schedule and self.is_playing:
                     self.stop_radio()
             except ValueError:
