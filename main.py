@@ -2,6 +2,7 @@ import sys
 import json
 import os
 import datetime
+import winreg
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QComboBox, QRadioButton, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
@@ -55,7 +56,8 @@ def load_config():
         'schedule_enabled': False,
         'schedule_days': [0, 1, 2, 3, 4, 5, 6],
         'schedule_start': '08:00',
-        'schedule_end': '18:00'
+        'schedule_end': '18:00',
+        'autostart': False
     }
     if os.path.exists(CONFIG_FILE):
         try:
@@ -88,11 +90,41 @@ def create_icon():
     painter.end()
     return QIcon(pixmap)
 
+def set_autostart(enable=True):
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_name = "UkrRadioOnline"
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_ALL_ACCESS)
+        if enable:
+            exe_path = sys.executable
+            script_path = os.path.abspath(__file__)
+            cmd = f'"{exe_path}" "{script_path}"'
+            winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, cmd)
+        else:
+            try:
+                winreg.DeleteValue(key, app_name)
+            except FileNotFoundError:
+                pass
+        winreg.CloseKey(key)
+    except Exception:
+        pass
+
+def check_autostart():
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_name = "UkrRadioOnline"
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ)
+        value, _ = winreg.QueryValueEx(key, app_name)
+        winreg.CloseKey(key)
+        return True
+    except FileNotFoundError:
+        return False
+
 class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Українське радіо (online)")
-        self.setFixedSize(500, 520)
+        self.setFixedSize(500, 560)
         self.setWindowIcon(create_icon())
         
         self.config = load_config()
@@ -201,6 +233,12 @@ class UkrRadioApp(QMainWindow):
         self.sched_chk.setChecked(self.config.get('schedule_enabled', False))
         self.sched_chk.stateChanged.connect(self.save_current_config)
         schedule_layout.addWidget(self.sched_chk)
+        
+        self.autostart_chk = QCheckBox("Автозапуск програми разом із Windows")
+        self.autostart_chk.setProperty("class", "bold_label")
+        self.autostart_chk.setChecked(check_autostart())
+        self.autostart_chk.stateChanged.connect(self.on_autostart_change)
+        schedule_layout.addWidget(self.autostart_chk)
         
         days_layout = QHBoxLayout()
         days_layout.addWidget(QLabel("Дні:"))
@@ -389,6 +427,10 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
 
+    def on_autostart_change(self, state):
+        set_autostart(self.autostart_chk.isChecked())
+        self.save_current_config()
+
     def save_current_config(self):
         days = [i for i, chk in enumerate(self.day_chks) if chk.isChecked()]
         quality = 'low' if self.rb_low.isChecked() else 'high'
@@ -400,7 +442,8 @@ class UkrRadioApp(QMainWindow):
             'schedule_enabled': self.sched_chk.isChecked(),
             'schedule_days': days,
             'schedule_start': self.start_edit.text(),
-            'schedule_end': self.end_edit.text()
+            'schedule_end': self.end_edit.text(),
+            'autostart': self.autostart_chk.isChecked()
         }
         save_config(cfg)
 
