@@ -39,13 +39,13 @@ THEMES = {
 CONFIG_FILE = "radio_config.json"
 
 RADIO_STATIONS = {
-    "Українське Радіо": [
-        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3"},
-        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3-l"}
-    ],
     "Радіо Промінь": [
         {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3"},
         {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur2-mp3-l"}
+    ],
+    "Українське Радіо": [
+        {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3"},
+        {"name": "Резервне (Низька якість)", "url": "https://radio.nrcu.gov.ua:8443/ur1-mp3-l"}
     ],
     "Радіо Культура": [
         {"name": "Основне (Висока якість)", "url": "https://radio.nrcu.gov.ua:8443/ur3-mp3"},
