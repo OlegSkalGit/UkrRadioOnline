@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
                              QMessageBox, QDialog, QDialogButtonBox, QTextBrowser)
-from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal, QSharedMemory
+from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
 
@@ -308,6 +309,11 @@ class UkrRadioApp(QMainWindow):
         self.scheduler_timer.timeout.connect(self.check_schedule)
         self.scheduler_timer.start(30000)
         
+        self.server = QLocalServer(self)
+        QLocalServer.removeServer("UkrRadioOnline_IPC")
+        self.server.listen("UkrRadioOnline_IPC")
+        self.server.newConnection.connect(self.on_new_instance_connection)
+        
         QTimer.singleShot(500, self.startup_autoplay)
         
     def startup_autoplay(self):
@@ -318,6 +324,13 @@ class UkrRadioApp(QMainWindow):
             self.check_schedule()
         else:
             self.play_radio()
+            
+    def on_new_instance_connection(self):
+        socket = self.server.nextPendingConnection()
+        if socket:
+            socket.deleteLater()
+        self.show_and_activate_window()
+        self.tray_icon.showMessage("Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 1500)
         
     def init_ui(self):
         self.create_menu()
@@ -437,6 +450,11 @@ class UkrRadioApp(QMainWindow):
         about_action = QAction("Про програму...", self)
         about_action.triggered.connect(self.show_help)
         help_menu.addAction(about_action)
+        
+        self.menu_exit_btn = QPushButton("✖ Вихід")
+        self.menu_exit_btn.setProperty("class", "menu_exit_btn")
+        self.menu_exit_btn.clicked.connect(self.quit_app)
+        menubar.setCornerWidget(self.menu_exit_btn, Qt.Corner.TopRightCorner)
 
     def populate_audio_devices(self):
         self.audio_devices_menu.clear()
@@ -587,6 +605,18 @@ class UkrRadioApp(QMainWindow):
             color: {c['accent_text']};
             font-weight: bold;
             font-size: 16px;
+        }}
+        QPushButton.menu_exit_btn {{
+            background-color: transparent;
+            color: {c['error']};
+            font-weight: bold;
+            padding: 4px 10px;
+            margin: 2px 4px;
+            border-radius: 4px;
+        }}
+        QPushButton.menu_exit_btn:hover {{
+            background-color: {c['error']};
+            color: {c['accent_text']};
         }}
         QComboBox {{
             background-color: {c['entry_bg']};
@@ -836,6 +866,13 @@ class UkrRadioApp(QMainWindow):
             self.showNormal()
         self.raise_()
         self.activateWindow()
+        
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
 
     def closeEvent(self, event):
         event.ignore()
@@ -850,13 +887,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     
-    shared_mem = QSharedMemory("UkrRadioOnline_SingleInstance")
-    if not shared_mem.create(1):
-        tray = QSystemTrayIcon(create_icon())
-        tray.show()
-        tray.showMessage("Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 1500)
-        QTimer.singleShot(1500, app.quit)
-        sys.exit(app.exec())
+    socket = QLocalSocket()
+    socket.connectToServer("UkrRadioOnline_IPC")
+    if socket.waitForConnected(500):
+        sys.exit(0)
         
     window = UkrRadioApp()
     if not window.config.get('autominimize', False):
