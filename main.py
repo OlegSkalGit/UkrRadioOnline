@@ -451,10 +451,10 @@ class UkrRadioApp(QMainWindow):
         about_action.triggered.connect(self.show_help)
         help_menu.addAction(about_action)
         
-        self.menu_exit_btn = QPushButton("✖ Вихід")
-        self.menu_exit_btn.setProperty("class", "menu_exit_btn")
-        self.menu_exit_btn.clicked.connect(self.quit_app)
-        menubar.setCornerWidget(self.menu_exit_btn, Qt.Corner.TopRightCorner)
+        help_menu.addSeparator()
+        exit_action = QAction("Вихід", self)
+        exit_action.triggered.connect(self.quit_app)
+        help_menu.addAction(exit_action)
 
     def populate_audio_devices(self):
         self.audio_devices_menu.clear()
@@ -605,18 +605,6 @@ class UkrRadioApp(QMainWindow):
             color: {c['accent_text']};
             font-weight: bold;
             font-size: 16px;
-        }}
-        QPushButton.menu_exit_btn {{
-            background-color: transparent;
-            color: {c['error']};
-            font-weight: bold;
-            padding: 4px 10px;
-            margin: 2px 4px;
-            border-radius: 4px;
-        }}
-        QPushButton.menu_exit_btn:hover {{
-            background-color: {c['error']};
-            color: {c['accent_text']};
         }}
         QComboBox {{
             background-color: {c['entry_bg']};
