@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
-                             QMessageBox, QDialog, QDialogButtonBox)
-from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal
+                             QMessageBox, QDialog, QDialogButtonBox, QTextBrowser)
+from PyQt6.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal, QSharedMemory
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
 
@@ -486,19 +486,30 @@ class UkrRadioApp(QMainWindow):
             self.save_current_config()
 
     def show_help(self):
-        QMessageBox.information(self, "Довідка", 
-            "Українське радіо (online)\n\n"
-            "Зручний програвач для прослуховування українських інтернет-радіостанцій.\n\n"
-            "Основні функції:\n"
-            "🎵 Відтворення: Обирайте станцію зі списку. Якщо джерело недоступне, оберіть інше у полі нижче.\n"
-            "🔄 Автоперемикання: Якщо потік обривається, програма автоматично перемкнеться на резервне джерело або зачекає на відновлення.\n"
-            "▶️ Автопрогравання: Дозволяє автоматично вмикати радіо при запуску програми та миттєво при виборі нової станції.\n"
-            "⏰ Планувальник: Задайте дні та час (Налаштування -> Планувальник). Радіо автоматично увімкнеться в заданий час.\n"
-            "🎧 Звукова карта: У меню можна перенаправити звук на будь-який підключений аудіопристрій (навушники, монітор тощо).\n"
-            "🌐 Автооновлення: Програма сама фоново завантажує сотні додаткових станцій з інтернету.\n"
-            "💻 Автозапуск: Програма може самостійно запускатися разом з Windows.\n"
-            "🗕 Фоновий режим: При закритті вікна (хрестиком) програма ховається у системний трей і продовжує грати. Вихід - через меню трею.\n\n"
-            "Автор: Олег Скалацький")
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            readme_path = os.path.join(base_dir, 'README.md')
+            with open(readme_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception:
+            content = "Файл README.md не знайдено."
+            
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Довідка")
+        dialog.resize(600, 450)
+        dialog.setStyleSheet(self.styleSheet())
+        layout = QVBoxLayout(dialog)
+        
+        browser = QTextBrowser()
+        browser.setMarkdown(content)
+        layout.addWidget(browser)
+        
+        btn = QPushButton("Закрити")
+        btn.setProperty("class", "primary_btn")
+        btn.clicked.connect(dialog.accept)
+        layout.addWidget(btn)
+        
+        dialog.exec()
 
     def apply_theme(self):
         c = THEMES[self.current_theme]
@@ -825,6 +836,12 @@ class UkrRadioApp(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    
+    shared_mem = QSharedMemory("UkrRadioOnline_SingleInstance")
+    if not shared_mem.create(1):
+        QMessageBox.warning(None, "Увага", "Програма вже запущена!")
+        sys.exit(0)
+        
     window = UkrRadioApp()
     window.show()
     sys.exit(app.exec())
