@@ -522,7 +522,7 @@ class UkrRadioApp(QMainWindow):
         self.station_cb.blockSignals(True)
         self.station_cb.clear()
         
-        national = ["Українське Радіо", "Радіо Промінь", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
+        national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         favorites = self.config.get('favorites', [])
         all_stations = list(RADIO_STATIONS.keys())
         
@@ -555,7 +555,9 @@ class UkrRadioApp(QMainWindow):
     def update_favorite_btn(self):
         station = self.get_current_station()
         favorites = self.config.get('favorites', [])
-        if station in favorites:
+        national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
+        
+        if station in favorites or station in national:
             self.fav_btn.setText("★")
             self.fav_btn.setStyleSheet("color: #f9e2af;") # Жовтий колір для зірочки
         else:
@@ -564,6 +566,10 @@ class UkrRadioApp(QMainWindow):
 
     def toggle_favorite(self):
         station = self.get_current_station()
+        national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
+        if station in national:
+            return # Національні станції завжди в улюблених
+            
         if 'favorites' not in self.config:
             self.config['favorites'] = []
             
