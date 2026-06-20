@@ -143,50 +143,44 @@ class UkrRadioApp(QMainWindow):
         header_layout.addStretch()
         main_layout.addLayout(header_layout)
         
-        self.metadata_lbl = QLabel("")
-        self.metadata_lbl.setProperty("class", "metadata_label")
-        self.metadata_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.metadata_lbl.setWordWrap(True)
-        self.metadata_lbl.hide() # Приховуємо, поки немає метаданих
-        main_layout.addWidget(self.metadata_lbl)
+
         
         # Player Card
         self.player_card = QGroupBox()
         self.player_card.setProperty("class", "card")
         player_layout = QVBoxLayout(self.player_card)
         player_layout.setSpacing(10)
-        
-        lbl_station = QLabel("Радіостанція:")
-        lbl_station.setProperty("class", "bold_label")
-        player_layout.addWidget(lbl_station)
-        
         station_layout = QHBoxLayout()
-        self.station_cb = QComboBox()
-        self.station_cb.currentIndexChanged.connect(self.on_station_change)
-        station_layout.addWidget(self.station_cb, 1)
         
         self.fav_btn = QPushButton("☆")
-        self.fav_btn.setFixedWidth(35)
         self.fav_btn.setProperty("class", "icon_btn")
         self.fav_btn.clicked.connect(self.toggle_favorite)
         station_layout.addWidget(self.fav_btn)
         
+        self.station_cb = QComboBox()
+        self.station_cb.currentIndexChanged.connect(self.on_station_change)
+        station_layout.addWidget(self.station_cb, 2)
+        
+        self.source_cb = QComboBox()
+        self.source_cb.currentIndexChanged.connect(self.on_source_change)
+        station_layout.addWidget(self.source_cb, 1)
+        
         player_layout.addLayout(station_layout)
+        
+        self.metadata_lbl = QLabel("Дані відсутні.")
+        self.metadata_lbl.setProperty("class", "metadata_label")
+        self.metadata_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.metadata_lbl.setWordWrap(True)
+        player_layout.addWidget(self.metadata_lbl)
         
         saved_station = self.config.get('station', 'Радіо Промінь')
         self.populate_stations(saved_station)
         
-        lbl_source = QLabel("Джерело потоку:")
-        lbl_source.setProperty("class", "bold_label")
-        player_layout.addWidget(lbl_source)
-        
-        self.source_cb = QComboBox()
         self.populate_sources()
+        
         saved_idx = self.config.get('source_index', 0)
         if saved_idx < self.source_cb.count():
             self.source_cb.setCurrentIndex(saved_idx)
-        self.source_cb.currentIndexChanged.connect(self.on_source_change)
-        player_layout.addWidget(self.source_cb)
         
         controls_layout = QHBoxLayout()
         self.play_btn = QPushButton("▶ Грати")
@@ -700,8 +694,7 @@ class UkrRadioApp(QMainWindow):
         self.player.stop()
         self.is_playing = False
         
-        self.metadata_lbl.hide()
-        self.metadata_lbl.setText("")
+        self.metadata_lbl.setText("Дані відсутні.")
         
         self.play_btn.setText("▶ Грати")
         self.play_btn.setProperty("class", "primary_btn")
@@ -713,9 +706,8 @@ class UkrRadioApp(QMainWindow):
             return
         if title:
             self.metadata_lbl.setText(f"🎵 {title}")
-            self.metadata_lbl.show()
         else:
-            self.metadata_lbl.hide()
+            self.metadata_lbl.setText("Дані відсутні.")
 
     def on_metadata_changed(self):
         if not self.is_playing:
@@ -723,7 +715,7 @@ class UkrRadioApp(QMainWindow):
             
         metadata = self.player.metaData()
         if not metadata:
-            self.metadata_lbl.hide()
+            self.metadata_lbl.setText("Дані відсутні.")
             return
             
         title = metadata.value(QMediaMetaData.Key.Title)
@@ -742,9 +734,8 @@ class UkrRadioApp(QMainWindow):
             
         if text:
             self.metadata_lbl.setText(text)
-            self.metadata_lbl.show()
         else:
-            self.metadata_lbl.hide()
+            self.metadata_lbl.setText("Дані відсутні.")
 
     def on_player_error(self, error, error_string):
         if not self.is_playing:
