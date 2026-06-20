@@ -658,7 +658,10 @@ class UkrRadioApp(QMainWindow):
             self.config['schedule_end'] = end_t
             self.save_current_config()
             self.check_schedule()
-        elif self.config.get('schedule_enabled', False):
+        else:
+            # Якщо користувач натиснув Cancel, знімаємо прапорець
+            self.sched_enable_action.setChecked(False)
+            self.save_current_config()
             self.check_schedule()
 
     def show_help(self):
