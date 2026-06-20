@@ -133,6 +133,7 @@ def load_config():
         'autoplay': True,
         'autominimize': False,
         'minimize_to_tray': True,
+        'auto_record': False,
         'audio_device': ''
     }
     if os.path.exists(CONFIG_FILE):
@@ -579,10 +580,17 @@ class UkrRadioApp(QMainWindow):
         self.minimize_to_tray_action.triggered.connect(self.save_current_config)
         settings_menu.addAction(self.minimize_to_tray_action)
         
-        self.record_action = QAction("Запис", self, checkable=True)
+        record_menu = settings_menu.addMenu("Запис")
+        
+        self.record_action = QAction("Увімкнути запис поточної станції", self, checkable=True)
         self.record_action.setChecked(False)
         self.record_action.toggled.connect(self.on_record_toggled)
-        settings_menu.addAction(self.record_action)
+        record_menu.addAction(self.record_action)
+        
+        self.auto_record_action = QAction("Автоматичний запис при старті нового мовлення", self, checkable=True)
+        self.auto_record_action.setChecked(self.config.get('auto_record', False))
+        self.auto_record_action.triggered.connect(self.save_current_config)
+        record_menu.addAction(self.auto_record_action)
         
         self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
         self.audio_device_group = QActionGroup(self)
@@ -893,7 +901,9 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
         
-        if self.record_action.isChecked():
+        if self.auto_record_action.isChecked() and not self.record_action.isChecked():
+            self.record_action.setChecked(True)
+        elif self.record_action.isChecked():
             self.start_recording()
 
     def stop_radio(self):
@@ -958,6 +968,7 @@ class UkrRadioApp(QMainWindow):
             'minimize_to_tray': self.minimize_to_tray_action.isChecked(),
             'auto_switch': self.autoswitch_action.isChecked(),
             'autoplay': self.autoplay_action.isChecked(),
+            'auto_record': self.auto_record_action.isChecked(),
             'audio_device': self.config.get('audio_device', '')
         }
         save_config(cfg)
@@ -999,7 +1010,25 @@ class UkrRadioApp(QMainWindow):
         # Build file path
         now = datetime.datetime.now()
         date_str = now.strftime("%Y.%m.%d")
-        date_dir = os.path.join(APP_DIR, "records", date_str)
+        
+        # Перевірка прав доступу до APP_DIR
+        base_record_dir = os.path.join(APP_DIR, "records")
+        has_write_access = False
+        try:
+            os.makedirs(base_record_dir, exist_ok=True)
+            test_file = os.path.join(base_record_dir, "test.tmp")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            has_write_access = True
+        except Exception:
+            has_write_access = False
+
+        if not has_write_access:
+            base_record_dir = os.path.join(os.path.expanduser("~"), "Music", "UkrRadioOnline_records")
+            
+        date_dir = os.path.join(base_record_dir, date_str)
+        self.current_record_dir = date_dir
         
         time_str = now.strftime("%H.%M.%S")
         safe_station_name = re.sub(r'[\\/*?:"<>|]', "", station)
@@ -1017,6 +1046,10 @@ class UkrRadioApp(QMainWindow):
             self.record_thread.wait()
             self.record_thread = None
             self.tray_icon.showMessage("Запис зупинено", "Аудіофайл успішно збережено.", QSystemTrayIcon.MessageIcon.Information, 1500)
+            
+            if not self.isMinimized() and self.isVisible():
+                if hasattr(self, 'current_record_dir') and os.path.exists(self.current_record_dir):
+                    os.startfile(self.current_record_dir)
             
         self.record_action.blockSignals(True)
         self.record_action.setChecked(False)
