@@ -164,27 +164,26 @@ class UkrRadioApp(QMainWindow):
         
         # Header
         header_layout = QHBoxLayout()
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.title_lbl = QLabel("Українське радіо (online) 📻")
         self.title_lbl.setProperty("class", "header_title")
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
-        
-        vol_icon = QLabel("🔈")
-        header_layout.addWidget(vol_icon)
-        self.vol_slider = QSlider(Qt.Orientation.Horizontal)
-        self.vol_slider.setRange(0, 100)
-        self.vol_slider.setValue(self.config.get('volume', 70))
-        self.vol_slider.setFixedWidth(100)
-        self.vol_slider.valueChanged.connect(self.on_volume_change)
-        header_layout.addWidget(self.vol_slider)
-        
         main_layout.addLayout(header_layout)
         
         # Player Card
         self.player_card = QGroupBox()
         self.player_card.setProperty("class", "card")
         player_layout = QVBoxLayout(self.player_card)
+        player_layout.setSpacing(10)
+        
+        # Search Box
+        search_layout = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Пошук станції...")
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        search_layout.addWidget(self.search_input)
+        player_layout.addLayout(search_layout)
+        
         # Station Layout
         station_layout = QHBoxLayout()
         
@@ -194,27 +193,12 @@ class UkrRadioApp(QMainWindow):
         station_layout.addWidget(self.fav_btn)
         
         self.station_cb = QComboBox()
-        self.station_cb.setEditable(True)
-        self.station_cb.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.station_cb.lineEdit().setPlaceholderText("Введіть назву або оберіть зі списку...")
-        # Use MatchContains for better search experience
-        completer = self.station_cb.completer()
-        if completer:
-            completer.setFilterMode(Qt.MatchFlag.MatchContains)
-            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            
         self.station_cb.currentIndexChanged.connect(self.on_station_change)
         station_layout.addWidget(self.station_cb, 2)
         
         self.source_cb = QComboBox()
         self.source_cb.currentIndexChanged.connect(self.on_source_change)
         station_layout.addWidget(self.source_cb, 1)
-        
-        self.play_btn = QPushButton("▶")
-        self.play_btn.setProperty("class", "primary_btn")
-        self.play_btn.setFixedWidth(40)
-        self.play_btn.clicked.connect(self.toggle_play)
-        station_layout.addWidget(self.play_btn)
         
         player_layout.addLayout(station_layout)
         
@@ -232,6 +216,25 @@ class UkrRadioApp(QMainWindow):
         saved_idx = self.config.get('source_index', 0)
         if saved_idx < self.source_cb.count():
             self.source_cb.setCurrentIndex(saved_idx)
+            
+        controls_layout = QHBoxLayout()
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.play_btn = QPushButton("▶ Грати")
+        self.play_btn.setProperty("class", "primary_btn")
+        self.play_btn.clicked.connect(self.toggle_play)
+        controls_layout.addWidget(self.play_btn)
+        
+        controls_layout.addStretch()
+        controls_layout.addWidget(QLabel("🔈"))
+        self.vol_slider = QSlider(Qt.Orientation.Horizontal)
+        self.vol_slider.setRange(0, 100)
+        self.vol_slider.setValue(self.config.get('volume', 70))
+        self.vol_slider.setFixedWidth(150)
+        self.vol_slider.valueChanged.connect(self.on_volume_change)
+        controls_layout.addWidget(self.vol_slider)
+        controls_layout.addWidget(QLabel("🔊"))
+        
+        player_layout.addLayout(controls_layout)
         
         main_layout.addWidget(self.player_card)
         main_layout.addStretch()
@@ -643,15 +646,25 @@ class UkrRadioApp(QMainWindow):
         data = self.station_cb.currentData()
         return data if data else self.station_cb.currentText()
 
+    def on_search_text_changed(self, text):
+        current_station = self.get_current_station()
+        self.populate_stations(current_station)
+
     def populate_stations(self, station_to_select=None):
         self.station_cb.blockSignals(True)
         self.station_cb.clear()
         
+        search_text = ""
+        if hasattr(self, 'search_input'):
+            search_text = self.search_input.text().strip().lower()
+            
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         favorites = self.config.get('favorites', {})
         
         all_stations = list(RADIO_STATIONS.keys())
-        
+        if search_text:
+            all_stations = [s for s in all_stations if search_text in s.lower()]
+            
         nat_list = [s for s in national if s in all_stations]
         fav_list = sorted([s for s in favorites.keys() if s in all_stations and s not in nat_list])
         other_list = sorted([s for s in all_stations if s not in nat_list and s not in fav_list])
@@ -809,7 +822,7 @@ class UkrRadioApp(QMainWindow):
         self.meta_thread.metadataFetched.connect(self.on_icy_metadata)
         self.meta_thread.start()
         
-        self.play_btn.setText("■")
+        self.play_btn.setText("⏹ Зупинити")
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
@@ -833,7 +846,7 @@ class UkrRadioApp(QMainWindow):
         
         self.metadata_lbl.setText("Дані відсутні.")
         
-        self.play_btn.setText("▶")
+        self.play_btn.setText("▶ Грати")
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
