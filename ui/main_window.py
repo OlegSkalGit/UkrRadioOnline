@@ -235,6 +235,26 @@ class UkrRadioApp(QMainWindow):
         self.title_lbl.setProperty("class", "header_title")
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
+        
+        vol_layout = QHBoxLayout()
+        self.mute_btn = QPushButton("🔈")
+        self.mute_btn.setProperty("class", "icon_btn")
+        self.mute_btn.clicked.connect(self.toggle_mute)
+        self.mute_btn.setToolTip("Вимкнути/увімкнути звук")
+        vol_layout.addWidget(self.mute_btn)
+        
+        self.is_muted = False
+        self.saved_volume = self.config.get('volume', 70)
+        
+        self.vol_slider = QSlider(Qt.Orientation.Horizontal)
+        self.vol_slider.setRange(0, 100)
+        self.vol_slider.setValue(self.config.get('volume', 70))
+        self.vol_slider.setFixedWidth(100)
+        self.vol_slider.valueChanged.connect(self.on_volume_change)
+        vol_layout.addWidget(self.vol_slider)
+        vol_layout.addWidget(QLabel("🔊"))
+        
+        header_layout.addLayout(vol_layout)
         main_layout.addLayout(header_layout)
         
         # Player Card
@@ -284,29 +304,7 @@ class UkrRadioApp(QMainWindow):
         if saved_idx < self.source_cb.count():
             self.source_cb.setCurrentIndex(saved_idx)
             
-        controls_layout = QHBoxLayout()
-        controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        controls_layout.addStretch()
-        
-        controls_layout.addStretch()
-        self.mute_btn = QPushButton("🔈")
-        self.mute_btn.setProperty("class", "icon_btn")
-        self.mute_btn.clicked.connect(self.toggle_mute)
-        self.mute_btn.setToolTip("Вимкнути/увімкнути звук")
-        controls_layout.addWidget(self.mute_btn)
-        
-        self.is_muted = False
-        self.saved_volume = self.config.get('volume', 70)
-        
-        self.vol_slider = QSlider(Qt.Orientation.Horizontal)
-        self.vol_slider.setRange(0, 100)
-        self.vol_slider.setValue(self.config.get('volume', 70))
-        self.vol_slider.setFixedWidth(150)
-        self.vol_slider.valueChanged.connect(self.on_volume_change)
-        controls_layout.addWidget(self.vol_slider)
-        controls_layout.addWidget(QLabel("🔊"))
-        
-        player_layout.addLayout(controls_layout)
+        # Volume controls were moved to header
         
         main_layout.addWidget(self.player_card)
         main_layout.addStretch()
