@@ -85,7 +85,6 @@ class UkrRadioApp(QMainWindow):
         self.meta_thread = None
         
         self.player.errorOccurred.connect(self.on_player_error)
-        self.player.metaDataChanged.connect(self.on_metadata_changed)
         
         self.init_ui()
         self.apply_theme()
@@ -720,33 +719,7 @@ class UkrRadioApp(QMainWindow):
                 self.record_thread = None
                 self.start_recording()
 
-    def on_metadata_changed(self):
-        if not self.is_playing:
-            return
-            
-        metadata = self.player.metaData()
-        if not metadata:
-            self.metadata_lbl.setText("Дані відсутні.")
-            return
-            
-        title = metadata.value(QMediaMetaData.Key.Title)
-        author = metadata.value(QMediaMetaData.Key.Author)
-        contributing_artist = metadata.value(QMediaMetaData.Key.ContributingArtist)
-        
-        artist = author if author else contributing_artist
-        
-        text = ""
-        if artist and title:
-            text = f"🎵 {artist} - {title}"
-        elif title:
-            text = f"🎵 {title}"
-        elif artist:
-            text = f"🎵 {artist}"
-            
-        if text:
-            self.metadata_lbl.setText(text)
-        else:
-            self.metadata_lbl.setText("Дані відсутні.")
+
 
     def on_player_error(self, error, error_string):
         if not self.is_playing:
