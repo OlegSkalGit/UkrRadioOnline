@@ -737,10 +737,19 @@ class UkrRadioApp(QMainWindow):
             self.metadata_lbl.setText("Дані відсутні.")
             
         if self.record_thread and self.record_thread.isRunning():
-            if old_title is not None and old_title != self.current_metadata_title:
+            if old_title != self.current_metadata_title:
+                old_filepath = self.record_thread.filepath
                 self.record_thread.stop()
                 self.record_thread.wait()
                 self.record_thread = None
+                
+                # Delete the old file if it's very small (e.g. < 50KB) to avoid clutter
+                try:
+                    if os.path.exists(old_filepath) and os.path.getsize(old_filepath) < 50000:
+                        os.remove(old_filepath)
+                except Exception:
+                    pass
+                    
                 self.start_recording()
 
 
