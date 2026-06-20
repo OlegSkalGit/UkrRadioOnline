@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
                              QMessageBox, QDialog, QTextBrowser, QFileDialog, QCompleter,
-                             QToolButton, QWidgetAction, QSizePolicy)
-from PyQt6.QtCore import Qt, QTimer, QUrl, QEvent
+                             QToolButton, QWidgetAction, QSizePolicy, QListWidget, QListWidgetItem)
+from PyQt6.QtCore import Qt, QTimer, QUrl, QEvent, pyqtSignal
 from PyQt6.QtNetwork import QLocalServer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QMediaMetaData
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
@@ -65,6 +65,72 @@ def check_autostart():
         return True
     except FileNotFoundError:
         return False
+
+class StationButton(QPushButton):
+    stationSelected = pyqtSignal(str)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setProperty("class", "entry_bg")
+        self.setStyleSheet("text-align: left; padding: 4px; border: 1px solid #45475a; border-radius: 4px; background: #1e1e2e;")
+        self.clicked.connect(self.show_popup)
+        
+        self.popup = QWidget(self, Qt.WindowType.Popup)
+        layout = QVBoxLayout(self.popup)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Пошук станції...")
+        self.search_input.textChanged.connect(self.filter_list)
+        layout.addWidget(self.search_input)
+        
+        self.list_widget = QListWidget()
+        self.list_widget.itemClicked.connect(self.on_item_clicked)
+        layout.addWidget(self.list_widget)
+        
+        self.items_data = []
+
+    def populate(self, nat_list, fav_list, other_list, selected_station=None):
+        self.list_widget.clear()
+        self.items_data.clear()
+        
+        def add_item(text, data):
+            item = QListWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, data)
+            self.list_widget.addItem(item)
+            self.items_data.append((item, text))
+            
+        for s in nat_list:
+            add_item(s, s)
+        for s in fav_list:
+            add_item(f"⭐ {s}", s)
+        for s in other_list:
+            add_item(s, s)
+            
+    def filter_list(self, text):
+        search_text = text.strip().lower()
+        for item, name in self.items_data:
+            item.setHidden(search_text not in name.lower())
+
+    def on_item_clicked(self, item):
+        station = item.data(Qt.ItemDataRole.UserRole)
+        self.popup.hide()
+        self.stationSelected.emit(station)
+        
+    def show_popup(self):
+        window = self.window()
+        if window:
+            self.popup.setStyleSheet(window.styleSheet())
+            
+        pos = self.mapToGlobal(self.rect().bottomLeft())
+        h = min(350, self.list_widget.count() * 25 + 40)
+        if h < 100: h = 300
+        self.popup.setGeometry(pos.x(), pos.y(), self.width(), h)
+        self.search_input.clear()
+        self.popup.show()
+        self.search_input.setFocus()
+
 class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -185,11 +251,9 @@ class UkrRadioApp(QMainWindow):
         self.fav_btn.clicked.connect(self.toggle_favorite)
         station_layout.addWidget(self.fav_btn)
         
-        self.station_btn = QToolButton()
-        self.station_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.station_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.station_btn = StationButton()
         self.station_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.station_btn.setStyleSheet("text-align: left; padding: 4px;")
+        self.station_btn.stationSelected.connect(self.select_station)
         station_layout.addWidget(self.station_btn, 2)
         
         self.source_cb = QComboBox()
@@ -546,25 +610,7 @@ class UkrRadioApp(QMainWindow):
             return self._current_station
         return self.config.get('station', 'Радіо Промінь')
 
-    def build_station_menu(self):
-        if not hasattr(self, 'station_menu'):
-            self.station_menu = QMenu(self)
-            self.station_btn.setMenu(self.station_menu)
-            
-            search_action = QWidgetAction(self.station_menu)
-            self.search_input = QLineEdit()
-            self.search_input.setPlaceholderText("Пошук станції...")
-            self.search_input.textChanged.connect(self.on_search_text_changed)
-            search_action.setDefaultWidget(self.search_input)
-            self.station_menu.addAction(search_action)
-            self.station_menu.addSeparator()
-            
-            self._station_actions = []
-        else:
-            for act, label in self._station_actions:
-                self.station_menu.removeAction(act)
-            self._station_actions.clear()
-            
+    def populate_stations(self, station_to_select=None):
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         favorites = self.config.get('favorites', {})
         all_stations = list(RADIO_STATIONS.keys())
@@ -573,29 +619,7 @@ class UkrRadioApp(QMainWindow):
         fav_list = sorted([s for s in favorites.keys() if s in all_stations and s not in nat_list])
         other_list = sorted([s for s in all_stations if s not in nat_list and s not in fav_list])
         
-        for s in nat_list:
-            act = self.station_menu.addAction(s)
-            act.triggered.connect(lambda checked, st=s: self.select_station(st))
-            self._station_actions.append((act, s))
-            
-        for s in fav_list:
-            act = self.station_menu.addAction(f"⭐ {s}")
-            act.triggered.connect(lambda checked, st=s: self.select_station(st))
-            self._station_actions.append((act, s))
-            
-        for s in other_list:
-            act = self.station_menu.addAction(s)
-            act.triggered.connect(lambda checked, st=s: self.select_station(st))
-            self._station_actions.append((act, s))
-
-    def on_search_text_changed(self, text):
-        search_text = text.strip().lower()
-        if hasattr(self, '_station_actions'):
-            for act, station_name in self._station_actions:
-                act.setVisible(search_text in station_name.lower() or search_text == "")
-
-    def populate_stations(self, station_to_select=None):
-        self.build_station_menu()
+        self.station_btn.populate(nat_list, fav_list, other_list, station_to_select)
         if station_to_select:
             self._current_station = station_to_select
             favorites = self.config.get('favorites', {})
