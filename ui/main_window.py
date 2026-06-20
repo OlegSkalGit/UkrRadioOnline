@@ -209,12 +209,6 @@ class UkrRadioApp(QMainWindow):
 
     def create_menu(self):
         menubar = self.menuBar()
-        
-        # Перемикання тем
-        self.theme_action = QAction("Темна тема" if self.current_theme == 'light' else "Світла тема", self)
-        self.theme_action.triggered.connect(self.toggle_theme)
-        menubar.addAction(self.theme_action)
-        
         # Налаштування
         settings_menu = menubar.addMenu("Налаштування")
         play_menu = settings_menu.addMenu("Програвання")
@@ -295,6 +289,13 @@ class UkrRadioApp(QMainWindow):
         self.sched_enable_action.setChecked(self.config.get('schedule_enabled', False))
         self.sched_enable_action.toggled.connect(self.on_schedule_toggled)
         settings_menu.addAction(self.sched_enable_action)
+        
+        settings_menu.addSeparator()
+        
+        # Перемикання тем
+        self.theme_action = QAction("Темна тема" if self.current_theme == 'light' else "Світла тема", self)
+        self.theme_action.triggered.connect(self.toggle_theme)
+        settings_menu.addAction(self.theme_action)
         
         # Довідка
         help_action = QAction("Довідка", self)
