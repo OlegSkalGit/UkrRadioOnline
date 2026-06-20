@@ -66,6 +66,9 @@ QPushButton.error_btn {
     font-weight: bold;
     font-size: 16px;
 }
+QPushButton.error_btn:hover {
+    background-color: #fca4ba;
+}
 QPushButton.icon_btn {
     font-family: "Segoe UI Symbol";
     font-size: 18px;
