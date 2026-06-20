@@ -779,7 +779,7 @@ class UkrRadioApp(QMainWindow):
         self.meta_thread.metadataFetched.connect(self.on_icy_metadata)
         self.meta_thread.start()
         
-        self.play_btn.setText("⏹")
+        self.play_btn.setText("■")
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
