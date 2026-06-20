@@ -356,7 +356,14 @@ class UkrRadioApp(QMainWindow):
         dialog = ScheduleDialog(self, self.config)
         # Apply current theme to dialog
         dialog.setStyleSheet(self.styleSheet())
+        
+        saved_width = self.config.get('schedule_dialog_width', 300)
+        saved_height = self.config.get('schedule_dialog_height', 150)
+        dialog.resize(saved_width, saved_height)
+        
         if dialog.exec():
+            self.config['schedule_dialog_width'] = dialog.width()
+            self.config['schedule_dialog_height'] = dialog.height()
             days, start_t, end_t = dialog.get_data()
             self.config['schedule_days'] = days
             self.config['schedule_start'] = start_t
@@ -364,6 +371,8 @@ class UkrRadioApp(QMainWindow):
             self.save_current_config()
             self.check_schedule()
         else:
+            self.config['schedule_dialog_width'] = dialog.width()
+            self.config['schedule_dialog_height'] = dialog.height()
             # Якщо користувач натиснув Cancel, знімаємо прапорець
             self.sched_enable_action.setChecked(False)
             self.save_current_config()
@@ -379,7 +388,9 @@ class UkrRadioApp(QMainWindow):
             
         dialog = QDialog(self)
         dialog.setWindowTitle("Довідка")
-        dialog.resize(600, 450)
+        saved_width = self.config.get('help_dialog_width', 600)
+        saved_height = self.config.get('help_dialog_height', 450)
+        dialog.resize(saved_width, saved_height)
         dialog.setStyleSheet(self.styleSheet())
         layout = QVBoxLayout(dialog)
         
@@ -393,6 +404,10 @@ class UkrRadioApp(QMainWindow):
         layout.addWidget(btn)
         
         dialog.exec()
+        
+        self.config['help_dialog_width'] = dialog.width()
+        self.config['help_dialog_height'] = dialog.height()
+        self.save_current_config()
 
     def apply_theme(self):
         c = THEMES[self.current_theme]
