@@ -185,14 +185,7 @@ class UkrRadioApp(QMainWindow):
         self.player_card = QGroupBox()
         self.player_card.setProperty("class", "card")
         player_layout = QVBoxLayout(self.player_card)
-        # Search Box
-        search_layout = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Пошук станції...")
-        self.search_input.textChanged.connect(self.on_search_text_changed)
-        search_layout.addWidget(self.search_input)
-        player_layout.addLayout(search_layout)
-        
+        # Station Layout
         station_layout = QHBoxLayout()
         
         self.fav_btn = QPushButton("☆")
@@ -201,6 +194,17 @@ class UkrRadioApp(QMainWindow):
         station_layout.addWidget(self.fav_btn)
         
         self.station_cb = QComboBox()
+        self.station_cb.setEditable(True)
+        self.station_cb.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.station_cb.lineEdit().setPlaceholderText("Введіть назву або оберіть зі списку...")
+        # Use MatchContains for better search experience
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QCompleter
+        completer = self.station_cb.completer()
+        if completer:
+            completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            
         self.station_cb.currentIndexChanged.connect(self.on_station_change)
         station_layout.addWidget(self.station_cb, 2)
         
@@ -604,6 +608,9 @@ class UkrRadioApp(QMainWindow):
             border-radius: 4px;
             padding: 4px;
         }}
+        QSlider:horizontal {{
+            padding: 0 7px;
+        }}
         QSlider::groove:horizontal {{
             background: {c['entry_bg']};
             height: 6px;
@@ -638,25 +645,15 @@ class UkrRadioApp(QMainWindow):
         data = self.station_cb.currentData()
         return data if data else self.station_cb.currentText()
 
-    def on_search_text_changed(self, text):
-        current_station = self.get_current_station()
-        self.populate_stations(current_station)
-
     def populate_stations(self, station_to_select=None):
         self.station_cb.blockSignals(True)
         self.station_cb.clear()
         
-        search_text = ""
-        if hasattr(self, 'search_input'):
-            search_text = self.search_input.text().strip().lower()
-            
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         favorites = self.config.get('favorites', {})
         
         all_stations = list(RADIO_STATIONS.keys())
-        if search_text:
-            all_stations = [s for s in all_stations if search_text in s.lower()]
-            
+        
         nat_list = [s for s in national if s in all_stations]
         fav_list = sorted([s for s in favorites.keys() if s in all_stations and s not in nat_list])
         other_list = sorted([s for s in all_stations if s not in nat_list and s not in fav_list])
@@ -814,7 +811,7 @@ class UkrRadioApp(QMainWindow):
         self.meta_thread.metadataFetched.connect(self.on_icy_metadata)
         self.meta_thread.start()
         
-        self.play_btn.setText("⏹")
+        self.play_btn.setText("■")
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
