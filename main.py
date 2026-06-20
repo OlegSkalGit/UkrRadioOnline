@@ -139,7 +139,8 @@ def load_config():
             'playlists': True,
             'playback': True,
             'network': True,
-            'record': True
+            'record': True,
+            'open_folder': True
         },
         'audio_device': ''
     }
@@ -609,7 +610,7 @@ class UkrRadioApp(QMainWindow):
         notif_menu = settings_menu.addMenu("Сповіщення")
         
         notifs = self.config.get('notifications', {
-            'background': True, 'playlists': True, 'playback': True, 'network': True, 'record': True
+            'background': True, 'playlists': True, 'playback': True, 'network': True, 'record': True, 'open_folder': True
         })
         
         self.notif_actions = {}
@@ -618,7 +619,8 @@ class UkrRadioApp(QMainWindow):
             ('playlists', "Оновлення плейлистів"),
             ('playback', "Статус відтворення"),
             ('network', "Обрив зв'язку"),
-            ('record', "Статус запису")
+            ('record', "Статус запису"),
+            ('open_folder', "Відкривати папку з записами після зупинки")
         ]:
             act = QAction(text, self, checkable=True)
             act.setChecked(notifs.get(key, True))
@@ -1076,7 +1078,7 @@ class UkrRadioApp(QMainWindow):
             self.record_thread = None
             self.show_notification("record", "Запис зупинено", "Аудіофайл успішно збережено.", QSystemTrayIcon.MessageIcon.Information, 1500)
             
-            if show_folder and not self.isMinimized() and self.isVisible():
+            if show_folder and self.config.get('notifications', {}).get('open_folder', True) and not self.isMinimized() and self.isVisible():
                 if hasattr(self, 'current_record_dir') and os.path.exists(self.current_record_dir):
                     os.startfile(self.current_record_dir)
             
