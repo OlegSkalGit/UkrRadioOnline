@@ -21,7 +21,10 @@ def main():
         sys.exit(0)
         
     window = UkrRadioApp()
-    if not window.config.get('autominimize', False):
+    if window.config.get('autominimize', False):
+        if not window.config.get('minimize_to_tray', True):
+            window.showMinimized()
+    else:
         window.show()
         
     sys.exit(app.exec())

@@ -233,7 +233,7 @@ class UkrRadioApp(QMainWindow):
         self.autostart_action.triggered.connect(self.on_autostart_change)
         settings_menu.addAction(self.autostart_action)
         
-        self.autominimize_action = QAction("Автозгортання в трей при запуску", self, checkable=True)
+        self.autominimize_action = QAction("Автозгортання при запуску", self, checkable=True)
         self.autominimize_action.setChecked(self.config.get('autominimize', False))
         self.autominimize_action.triggered.connect(self.save_current_config)
         settings_menu.addAction(self.autominimize_action)
