@@ -12,6 +12,7 @@ class ScheduleDialog(QDialog):
         
     def init_ui(self):
         layout = QVBoxLayout(self)
+        layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetFixedSize)
         
         days_layout = QHBoxLayout()
         days_layout.addWidget(QLabel("Дні:"))
