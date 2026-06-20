@@ -108,33 +108,48 @@ class MetadataFetcher(QThread):
         
     def run(self):
         while self.running:
-            title = self.get_icy_metadata(self.url)
-            if title is not None:
-                self.metadataFetched.emit(title)
+            req = urllib.request.Request(self.url, headers={'Icy-MetaData': '1', 'User-Agent': 'Mozilla/5.0'})
+            try:
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    metaint = int(response.headers.get('icy-metaint', 0))
+                    if metaint == 0:
+                        self.msleep(5000)
+                        continue
+                    
+                    while self.running:
+                        # Read and discard audio data
+                        discarded = 0
+                        while discarded < metaint and self.running:
+                            chunk_size = min(4096, metaint - discarded)
+                            chunk = response.read(chunk_size)
+                            if not chunk:
+                                break
+                            discarded += len(chunk)
+                            
+                        if discarded < metaint or not self.running:
+                            break
+                            
+                        # Read metadata length
+                        length_byte = response.read(1)
+                        if not length_byte:
+                            break
+                            
+                        length = ord(length_byte) * 16
+                        if length > 0:
+                            meta_chunk = response.read(length)
+                            data = meta_chunk.decode('utf-8', errors='ignore')
+                            match = re.search(r"StreamTitle='([^']*)';", data)
+                            if match:
+                                title = match.group(1).strip()
+                                self.metadataFetched.emit(title)
+            except Exception:
+                pass
                 
-            for _ in range(100):
-                if not self.running: return
-                self.msleep(100) # 10 seconds
-
-    def get_icy_metadata(self, url):
-        req = urllib.request.Request(url, headers={'Icy-MetaData': '1', 'User-Agent': 'Mozilla/5.0'})
-        try:
-            with urllib.request.urlopen(req, timeout=5) as response:
-                metaint = int(response.headers.get('icy-metaint', 0))
-                if metaint == 0:
-                    return None
-                response.read(metaint)
-                length_byte = response.read(1)
-                if not length_byte: return None
-                length = ord(length_byte) * 16
-                if length > 0:
-                    data = response.read(length).decode('utf-8', errors='ignore')
-                    match = re.search(r"StreamTitle='([^']*)';", data)
-                    if match:
-                        return match.group(1).strip()
-                return ""
-        except Exception:
-            return None
+            if self.running:
+                # If connection dropped or failed, wait before reconnecting
+                for _ in range(50):
+                    if not self.running: break
+                    self.msleep(100)
 
     def stop(self):
         self.running = False
