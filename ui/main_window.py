@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
-                             QMessageBox, QDialog, QTextBrowser, QFileDialog, QCompleter)
+                             QMessageBox, QDialog, QTextBrowser, QFileDialog, QCompleter,
+                             QToolButton, QWidgetAction, QSizePolicy)
 from PyQt6.QtCore import Qt, QTimer, QUrl, QEvent
 from PyQt6.QtNetwork import QLocalServer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QMediaMetaData
@@ -176,14 +177,6 @@ class UkrRadioApp(QMainWindow):
         player_layout = QVBoxLayout(self.player_card)
         player_layout.setSpacing(10)
         
-        # Search Box
-        search_layout = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Пошук станції...")
-        self.search_input.textChanged.connect(self.on_search_text_changed)
-        search_layout.addWidget(self.search_input)
-        player_layout.addLayout(search_layout)
-        
         # Station Layout
         station_layout = QHBoxLayout()
         
@@ -192,13 +185,22 @@ class UkrRadioApp(QMainWindow):
         self.fav_btn.clicked.connect(self.toggle_favorite)
         station_layout.addWidget(self.fav_btn)
         
-        self.station_cb = QComboBox()
-        self.station_cb.currentIndexChanged.connect(self.on_station_change)
-        station_layout.addWidget(self.station_cb, 2)
+        self.station_btn = QToolButton()
+        self.station_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.station_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.station_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.station_btn.setStyleSheet("text-align: left; padding: 4px;")
+        station_layout.addWidget(self.station_btn, 2)
         
         self.source_cb = QComboBox()
         self.source_cb.currentIndexChanged.connect(self.on_source_change)
         station_layout.addWidget(self.source_cb, 1)
+        
+        self.play_btn = QPushButton("▶")
+        self.play_btn.setProperty("class", "primary_btn")
+        self.play_btn.clicked.connect(self.toggle_play)
+        self.play_btn.setFixedWidth(40)
+        station_layout.addWidget(self.play_btn)
         
         player_layout.addLayout(station_layout)
         
@@ -209,6 +211,7 @@ class UkrRadioApp(QMainWindow):
         player_layout.addWidget(self.metadata_lbl)
         
         saved_station = self.config.get('station', 'Радіо Промінь')
+        self._current_station = saved_station
         self.populate_stations(saved_station)
         
         self.populate_sources()
@@ -219,10 +222,7 @@ class UkrRadioApp(QMainWindow):
             
         controls_layout = QHBoxLayout()
         controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        self.play_btn = QPushButton("▶ Грати")
-        self.play_btn.setProperty("class", "primary_btn")
-        self.play_btn.clicked.connect(self.toggle_play)
-        controls_layout.addWidget(self.play_btn)
+        controls_layout.addStretch()
         
         controls_layout.addStretch()
         self.mute_btn = QPushButton("🔈")
@@ -473,9 +473,7 @@ class UkrRadioApp(QMainWindow):
         if added_count > 0 or files:
             self.save_current_config()
             current_station = self.get_current_station()
-            self.station_cb.blockSignals(True)
             self.populate_stations(current_station)
-            self.station_cb.blockSignals(False)
             
             # Також оновлюємо source_cb якщо змінилась поточна станція
             current_source_idx = self.source_cb.currentIndex()
@@ -544,53 +542,73 @@ class UkrRadioApp(QMainWindow):
         self.ignore_station_change = False
 
     def get_current_station(self):
-        data = self.station_cb.currentData()
-        return data if data else self.station_cb.currentText()
+        if hasattr(self, '_current_station'):
+            return self._current_station
+        return self.config.get('station', 'Радіо Промінь')
 
-    def on_search_text_changed(self, text):
-        current_station = self.get_current_station()
-        self.populate_stations(current_station)
-
-    def populate_stations(self, station_to_select=None):
-        self.station_cb.blockSignals(True)
-        self.station_cb.clear()
-        
-        search_text = ""
-        if hasattr(self, 'search_input'):
-            search_text = self.search_input.text().strip().lower()
+    def build_station_menu(self):
+        if not hasattr(self, 'station_menu'):
+            self.station_menu = QMenu(self)
+            self.station_btn.setMenu(self.station_menu)
+            
+            search_action = QWidgetAction(self.station_menu)
+            self.search_input = QLineEdit()
+            self.search_input.setPlaceholderText("Пошук станції...")
+            self.search_input.textChanged.connect(self.on_search_text_changed)
+            search_action.setDefaultWidget(self.search_input)
+            self.station_menu.addAction(search_action)
+            self.station_menu.addSeparator()
+            
+            self._station_actions = []
+        else:
+            for act, label in self._station_actions:
+                self.station_menu.removeAction(act)
+            self._station_actions.clear()
             
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         favorites = self.config.get('favorites', {})
-        
         all_stations = list(RADIO_STATIONS.keys())
-        if search_text:
-            all_stations = [s for s in all_stations if search_text in s.lower()]
-            
+        
         nat_list = [s for s in national if s in all_stations]
         fav_list = sorted([s for s in favorites.keys() if s in all_stations and s not in nat_list])
         other_list = sorted([s for s in all_stations if s not in nat_list and s not in fav_list])
         
-        idx = 0
-        target_idx = 0
-        
         for s in nat_list:
-            self.station_cb.addItem(s, userData=s)
-            if s == station_to_select: target_idx = idx
-            idx += 1
+            act = self.station_menu.addAction(s)
+            act.triggered.connect(lambda checked, st=s: self.select_station(st))
+            self._station_actions.append((act, s))
             
         for s in fav_list:
-            self.station_cb.addItem(f"⭐ {s}", userData=s)
-            if s == station_to_select: target_idx = idx
-            idx += 1
+            act = self.station_menu.addAction(f"⭐ {s}")
+            act.triggered.connect(lambda checked, st=s: self.select_station(st))
+            self._station_actions.append((act, s))
             
         for s in other_list:
-            self.station_cb.addItem(s, userData=s)
-            if s == station_to_select: target_idx = idx
-            idx += 1
-            
-        self.station_cb.setCurrentIndex(target_idx)
-        self.station_cb.blockSignals(False)
+            act = self.station_menu.addAction(s)
+            act.triggered.connect(lambda checked, st=s: self.select_station(st))
+            self._station_actions.append((act, s))
+
+    def on_search_text_changed(self, text):
+        search_text = text.strip().lower()
+        if hasattr(self, '_station_actions'):
+            for act, station_name in self._station_actions:
+                act.setVisible(search_text in station_name.lower() or search_text == "")
+
+    def populate_stations(self, station_to_select=None):
+        self.build_station_menu()
+        if station_to_select:
+            self._current_station = station_to_select
+            favorites = self.config.get('favorites', {})
+            prefix = "⭐ " if station_to_select in favorites else ""
+            self.station_btn.setText(f"{prefix}{station_to_select}")
         self.update_favorite_btn()
+
+    def select_station(self, station):
+        self._current_station = station
+        favorites = self.config.get('favorites', {})
+        prefix = "⭐ " if station in favorites else ""
+        self.station_btn.setText(f"{prefix}{station}")
+        self.on_station_change()
 
     def update_favorite_btn(self):
         station = self.get_current_station()
@@ -648,7 +666,6 @@ class UkrRadioApp(QMainWindow):
                 
         if added_count > 0:
             current_station = self.get_current_station()
-            self.station_cb.blockSignals(True)
             self.populate_stations(current_station)
             
         current_source_idx = self.source_cb.currentIndex()
@@ -738,7 +755,7 @@ class UkrRadioApp(QMainWindow):
         self.meta_thread.metadataFetched.connect(self.on_icy_metadata)
         self.meta_thread.start()
         
-        self.play_btn.setText("⏹ Зупинити")
+        self.play_btn.setText("⏹")
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
@@ -766,7 +783,7 @@ class UkrRadioApp(QMainWindow):
         
         self.metadata_lbl.setText("Дані відсутні.")
         
-        self.play_btn.setText("▶ Грати")
+        self.play_btn.setText("▶")
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
