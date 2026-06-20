@@ -228,20 +228,22 @@ class UkrRadioApp(QMainWindow):
         self.autoswitch_action.triggered.connect(self.save_current_config)
         settings_menu.addAction(self.autoswitch_action)
         
+        launch_menu = settings_menu.addMenu("Запуск програми")
+        
         self.autostart_action = QAction("Автозапуск з Windows", self, checkable=True)
         self.autostart_action.setChecked(check_autostart())
         self.autostart_action.triggered.connect(self.on_autostart_change)
-        settings_menu.addAction(self.autostart_action)
+        launch_menu.addAction(self.autostart_action)
         
         self.autominimize_action = QAction("Автозгортання при запуску", self, checkable=True)
         self.autominimize_action.setChecked(self.config.get('autominimize', False))
         self.autominimize_action.triggered.connect(self.save_current_config)
-        settings_menu.addAction(self.autominimize_action)
+        launch_menu.addAction(self.autominimize_action)
         
         self.minimize_to_tray_action = QAction("Згортати в трей при закритті/згортанні", self, checkable=True)
         self.minimize_to_tray_action.setChecked(self.config.get('minimize_to_tray', True))
         self.minimize_to_tray_action.triggered.connect(self.save_current_config)
-        settings_menu.addAction(self.minimize_to_tray_action)
+        launch_menu.addAction(self.minimize_to_tray_action)
         
         record_menu = settings_menu.addMenu("Запис")
         
