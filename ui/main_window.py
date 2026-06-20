@@ -766,7 +766,8 @@ class UkrRadioApp(QMainWindow):
             'autoplay': self.autoplay_action.isChecked(),
             'auto_record': self.auto_record_action.isChecked(),
             'notifications': {k: a.isChecked() for k, a in self.notif_actions.items()},
-            'audio_device': self.config.get('audio_device', '')
+            'audio_device': self.config.get('audio_device', ''),
+            'favorites': self.config.get('favorites', [])
         }
         save_config(cfg)
         self.config = cfg
