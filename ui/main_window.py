@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
-                             QMessageBox, QDialog, QTextBrowser)
+                             QMessageBox, QDialog, QTextBrowser, QFileDialog)
 from PyQt6.QtCore import Qt, QTimer, QUrl, QEvent
 from PyQt6.QtNetwork import QLocalServer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QMediaMetaData
@@ -90,6 +90,16 @@ class UkrRadioApp(QMainWindow):
         
         self.player.errorOccurred.connect(self.on_player_error)
         
+        # Завантажуємо користувацькі станції перед ініціалізацією UI
+        custom_stations = self.config.setdefault('custom_m3u_stations', {})
+        for name, sources in custom_stations.items():
+            if name in RADIO_STATIONS:
+                for src in sources:
+                    if src['url'] not in [s['url'] for s in RADIO_STATIONS[name]]:
+                        RADIO_STATIONS[name].append(src)
+            else:
+                RADIO_STATIONS[name] = sources
+                
         self.init_ui()
         self.apply_theme()
         self.setup_tray()
@@ -264,6 +274,11 @@ class UkrRadioApp(QMainWindow):
         self.populate_audio_devices()
         
         settings_menu.addSeparator()
+        self.load_m3u_action = QAction("Завантажити плейлист (.m3u)", self)
+        self.load_m3u_action.triggered.connect(self.load_m3u_dialog)
+        settings_menu.addAction(self.load_m3u_action)
+        
+        settings_menu.addSeparator()
         
         # Сповіщення
         notif_menu = settings_menu.addMenu("Сповіщення")
@@ -377,6 +392,70 @@ class UkrRadioApp(QMainWindow):
             self.sched_enable_action.setChecked(False)
             self.save_current_config()
             self.check_schedule()
+
+    def load_m3u_dialog(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Оберіть m3u файли", "", "M3U Playlists (*.m3u *.m3u8)")
+        if not files:
+            return
+            
+        added_count = 0
+        custom_stations = self.config.setdefault('custom_m3u_stations', {})
+        
+        for file in files:
+            try:
+                # Protection: check file size (<5MB)
+                if os.path.getsize(file) > 5 * 1024 * 1024:
+                    continue
+                    
+                with open(file, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read().splitlines()
+                    
+                current_name = None
+                for line in content:
+                    line = line.strip()
+                    if line.startswith("#EXTINF"):
+                        parts = line.split(',')
+                        if len(parts) > 1:
+                            current_name = parts[-1].strip()
+                    elif line.startswith("http"):
+                        # Ensure we have a valid station name
+                        if not current_name:
+                            current_name = os.path.basename(file).split('.')[0]
+                            
+                        # Add to config custom_stations
+                        if current_name not in custom_stations:
+                            custom_stations[current_name] = []
+                            
+                        # Avoid duplicates
+                        if line not in [s['url'] for s in custom_stations[current_name]]:
+                            custom_stations[current_name].append({"name": f"[Користувацька] Джерело {len(custom_stations[current_name]) + 1}", "url": line})
+                            
+                        # Also add to RADIO_STATIONS live
+                        if current_name not in RADIO_STATIONS:
+                            RADIO_STATIONS[current_name] = []
+                            added_count += 1
+                        
+                        if line not in [s['url'] for s in RADIO_STATIONS[current_name]]:
+                            RADIO_STATIONS[current_name].append({"name": f"[Користувацька] Джерело {len(RADIO_STATIONS[current_name]) + 1}", "url": line})
+                            
+                        current_name = None
+            except Exception as e:
+                print(f"Помилка читання {file}: {e}")
+                
+        if added_count > 0 or files:
+            self.save_current_config()
+            current_station = self.get_current_station()
+            self.station_cb.blockSignals(True)
+            self.populate_stations(current_station)
+            self.station_cb.blockSignals(False)
+            
+            # Також оновлюємо source_cb якщо змінилась поточна станція
+            current_source_idx = self.source_cb.currentIndex()
+            self.populate_sources()
+            if current_source_idx < self.source_cb.count():
+                self.source_cb.setCurrentIndex(current_source_idx)
+                
+            self.show_notification("playlists", "Плейлисти завантажено", f"Успішно оброблено {len(files)} файлів.", QSystemTrayIcon.MessageIcon.Information, 2000)
 
     def show_help(self):
         try:
