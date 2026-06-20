@@ -68,7 +68,7 @@ class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Українське радіо (online)")
-        self.setMinimumWidth(500)
+        self.setMinimumSize(500, 320)
         
         self.config = load_config()
         saved_width = self.config.get('window_width', 500)
@@ -241,85 +241,151 @@ class UkrRadioApp(QMainWindow):
 
     def create_menu(self):
         menubar = self.menuBar()
+        # Налаштування
+        settings_menu = menubar.addMenu("Налаштування")
+        play_menu = settings_menu.addMenu("Програвання")
         
-        # Файл
-        file_menu = menubar.addMenu("Файл")
-        self.load_m3u_action = QAction("Завантажити плейлист (.m3u)", self)
-        self.load_m3u_action.triggered.connect(self.load_m3u_dialog)
-        file_menu.addAction(self.load_m3u_action)
+        self.autoplay_action = QAction("Автопрогравання", self, checkable=True)
+        self.autoplay_action.setChecked(self.config.get('autoplay', True))
+        self.autoplay_action.triggered.connect(self.save_current_config)
+        play_menu.addAction(self.autoplay_action)
         
-        file_menu.addSeparator()
-        exit_action = QAction("Вихід", self)
-        exit_action.triggered.connect(self.quit_app)
-        file_menu.addAction(exit_action)
+        self.autoswitch_action = QAction("Автоперемикання джерела при обриві", self, checkable=True)
+        self.autoswitch_action.setChecked(self.config.get('auto_switch', True))
+        self.autoswitch_action.triggered.connect(self.save_current_config)
+        play_menu.addAction(self.autoswitch_action)
         
-        # Запис
-        record_menu = menubar.addMenu("Запис")
+        launch_menu = settings_menu.addMenu("Запуск програми")
+        
+        self.autostart_action = QAction("Автозапуск з Windows", self, checkable=True)
+        self.autostart_action.setChecked(check_autostart())
+        self.autostart_action.triggered.connect(self.on_autostart_change)
+        launch_menu.addAction(self.autostart_action)
+        
+        self.autominimize_action = QAction("Автозгортання при запуску", self, checkable=True)
+        self.autominimize_action.setChecked(self.config.get('autominimize', False))
+        self.autominimize_action.triggered.connect(self.save_current_config)
+        launch_menu.addAction(self.autominimize_action)
+        
+        self.minimize_to_tray_action = QAction("Згортати в трей при закритті/згортанні", self, checkable=True)
+        self.minimize_to_tray_action.setChecked(self.config.get('minimize_to_tray', True))
+        self.minimize_to_tray_action.triggered.connect(self.save_current_config)
+        launch_menu.addAction(self.minimize_to_tray_action)
+        
+        record_menu = settings_menu.addMenu("Запис")
+        
         self.record_action = QAction("Увімкнути запис поточної станції", self, checkable=True)
         self.record_action.setChecked(False)
         self.record_action.toggled.connect(self.on_record_toggled)
         record_menu.addAction(self.record_action)
         
+        self.auto_record_action = QAction("Автоматичний запис при старті нового мовлення", self, checkable=True)
+        self.auto_record_action.setChecked(self.config.get('auto_record', False))
+        self.auto_record_action.triggered.connect(self.save_current_config)
+        record_menu.addAction(self.auto_record_action)
+        
+        record_menu.addSeparator()
         self.open_records_action = QAction("Відкрити папку з записами", self)
         self.open_records_action.triggered.connect(self.open_records_folder)
         record_menu.addAction(self.open_records_action)
         
-        # Налаштування
-        settings_menu = menubar.addMenu("Налаштування")
+        self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
+        self.audio_device_group = QActionGroup(self)
+        self.populate_audio_devices()
         
-        self.sched_enable_action = QAction("Розклад...", self)
-        self.sched_enable_action.triggered.connect(self.open_schedule_dialog)
+        settings_menu.addSeparator()
+        self.load_m3u_action = QAction("Завантажити плейлист (.m3u)", self)
+        self.load_m3u_action.triggered.connect(self.load_m3u_dialog)
+        settings_menu.addAction(self.load_m3u_action)
+        
+        settings_menu.addSeparator()
+        
+        # Сповіщення
+        notif_menu = settings_menu.addMenu("Сповіщення")
+        
+        notifs = self.config.get('notifications', {
+            'background': True, 'playlists': True, 'playback': True, 'network': True, 'record': True, 'open_folder': True, 'startup_autorecord': True
+        })
+        
+        self.notif_actions = {}
+        for key, text in [
+            ('background', "Згортання / фоновий режим"),
+            ('playlists', "Оновлення плейлистів"),
+            ('playback', "Статус відтворення"),
+            ('network', "Обрив зв'язку"),
+            ('record', "Статус запису"),
+            ('open_folder', "Відкривати папку з записами після зупинки"),
+            ('startup_autorecord', "Повідомлення про автозапис при старті")
+        ]:
+            act = QAction(text, self, checkable=True)
+            act.setChecked(notifs.get(key, True))
+            act.triggered.connect(self.save_current_config)
+            notif_menu.addAction(act)
+            self.notif_actions[key] = act
+        
+        self.sched_enable_action = QAction("Увімкнути розклад (автозапуск/зупинка)", self, checkable=True)
+        self.sched_enable_action.setChecked(self.config.get('schedule_enabled', False))
+        self.sched_enable_action.toggled.connect(self.on_schedule_toggled)
         settings_menu.addAction(self.sched_enable_action)
         
         settings_menu.addSeparator()
         
-        settings_action = QAction("Налаштування...", self)
-        settings_action.triggered.connect(self.open_settings_dialog)
-        settings_menu.addAction(settings_action)
+        # Перемикання тем
+        self.theme_action = QAction("Темна тема" if self.current_theme == 'light' else "Світла тема", self)
+        self.theme_action.triggered.connect(self.toggle_theme)
+        settings_menu.addAction(self.theme_action)
         
         # Довідка
         help_action = QAction("Довідка", self)
         help_action.triggered.connect(self.show_help)
         menubar.addAction(help_action)
+        
+        # Вихід
+        exit_action = QAction("Вихід", self)
+        exit_action.triggered.connect(self.quit_app)
+        menubar.addAction(exit_action)
 
-    def init_audio_device(self):
+    def populate_audio_devices(self):
+        self.audio_devices_menu.clear()
+        
+        default_action = QAction("Системний за замовчуванням", self, checkable=True)
+        default_action.setData("")
+        self.audio_device_group.addAction(default_action)
+        self.audio_devices_menu.addAction(default_action)
+        
         saved_device = self.config.get('audio_device', '')
         has_matched = False
-        if saved_device:
-            for device in QMediaDevices.audioOutputs():
-                if saved_device == bytearray(device.id()).decode('utf-8', 'ignore'):
-                    self.audio_output.setDevice(device)
-                    has_matched = True
-                    break
+        
+        for device in QMediaDevices.audioOutputs():
+            desc = device.description()
+            action = QAction(desc, self, checkable=True)
+            action.setData(device.id())
+            self.audio_device_group.addAction(action)
+            self.audio_devices_menu.addAction(action)
+            
+            if saved_device and saved_device == bytearray(device.id()).decode('utf-8', 'ignore'):
+                action.setChecked(True)
+                self.audio_output.setDevice(device)
+                has_matched = True
+                
         if not has_matched:
+            default_action.setChecked(True)
             self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
             
-    def open_settings_dialog(self):
-        dialog = SettingsDialog(self.config, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            new_settings = dialog.get_settings()
-            
-            # Autostart logic
-            old_autostart = self.config.get('autostart', False)
-            if new_settings['autostart'] != old_autostart:
-                set_autostart(new_settings['autostart'])
-                
-            # Theme logic
-            old_theme = self.current_theme
-            if new_settings['theme'] != old_theme:
-                self.current_theme = new_settings['theme']
-                self.apply_theme()
-                
-            # Audio device logic
-            old_device = self.config.get('audio_device', '')
-            if new_settings['audio_device'] != old_device:
-                self.config['audio_device'] = new_settings['audio_device']
-                self.init_audio_device()
-                
-            # Update config and save
-            self.config.update(new_settings)
-            save_config(self.config)
+        self.audio_device_group.triggered.connect(self.on_audio_device_changed)
 
+    def on_audio_device_changed(self, action):
+        device_id = action.data()
+        self.config['audio_device'] = bytearray(device_id).decode('utf-8', 'ignore') if device_id else ""
+        
+        if not device_id:
+            self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
+        else:
+            for device in QMediaDevices.audioOutputs():
+                if device.id() == device_id:
+                    self.audio_output.setDevice(device)
+                    break
+        self.save_current_config()
 
     def open_schedule_dialog(self):
         dialog = ScheduleDialog(self, self.config)
@@ -560,7 +626,7 @@ class UkrRadioApp(QMainWindow):
         """
         self.setStyleSheet(qss)
         
-
+        self.theme_action.setText("Темна тема" if self.current_theme == 'light' else "Світла тема")
         
         if self.is_playing:
             self.play_btn.setProperty("class", "error_btn")
