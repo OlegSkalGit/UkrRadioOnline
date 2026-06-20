@@ -135,12 +135,11 @@ class UkrRadioApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Українське радіо (online)")
-        self.setMinimumSize(500, 320)
+        self.setMinimumWidth(500)
         
         self.config = load_config()
         saved_width = self.config.get('window_width', 500)
-        saved_height = self.config.get('window_height', 320)
-        self.resize(saved_width, saved_height)
+        self.resize(saved_width, 100) # Minimum height so it shrinks
         
         self.setWindowIcon(create_icon())
         
@@ -228,6 +227,7 @@ class UkrRadioApp(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
+        main_layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetFixedSize)
         
         # Header
         header_layout = QHBoxLayout()
@@ -307,7 +307,6 @@ class UkrRadioApp(QMainWindow):
         # Volume controls were moved to header
         
         main_layout.addWidget(self.player_card)
-        main_layout.addStretch()
 
     def create_menu(self):
         menubar = self.menuBar()
