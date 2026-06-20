@@ -704,10 +704,21 @@ class UkrRadioApp(QMainWindow):
     def on_icy_metadata(self, title):
         if not self.is_playing:
             return
+            
+        old_title = getattr(self, 'current_metadata_title', None)
+        self.current_metadata_title = title if title else ""
+            
         if title:
             self.metadata_lbl.setText(f"🎵 {title}")
         else:
             self.metadata_lbl.setText("Дані відсутні.")
+            
+        if self.record_thread and self.record_thread.isRunning():
+            if old_title is not None and old_title != self.current_metadata_title:
+                self.record_thread.stop()
+                self.record_thread.wait()
+                self.record_thread = None
+                self.start_recording()
 
     def on_metadata_changed(self):
         if not self.is_playing:
@@ -862,8 +873,18 @@ class UkrRadioApp(QMainWindow):
         self.current_record_dir = date_dir
         
         time_str = now.strftime("%H.%M.%S")
-        safe_station_name = re.sub(r'[\\/*?:"<>|]', "", station)
-        filename = f"{time_str}_{safe_station_name}.mp3"
+        safe_station_name = re.sub(r'[\\/*?:"<>|]', "", station).strip()
+        
+        meta_title = getattr(self, 'current_metadata_title', "")
+        if meta_title:
+            safe_meta = re.sub(r'[\\/*?:"<>|]', "", meta_title).strip()
+            # Обмежуємо довжину метаданих у назві, щоб уникнути помилок файлової системи (макс 255 символів для всього шляху)
+            if len(safe_meta) > 100:
+                safe_meta = safe_meta[:100] + "..."
+            filename = f"{time_str}_{safe_station_name} - {safe_meta}.mp3"
+        else:
+            filename = f"{time_str}_{safe_station_name}.mp3"
+            
         filepath = os.path.join(date_dir, filename)
         
         self.record_thread = RecordThread(url, filepath)
