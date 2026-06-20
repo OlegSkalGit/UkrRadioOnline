@@ -217,16 +217,17 @@ class UkrRadioApp(QMainWindow):
         
         # Налаштування
         settings_menu = menubar.addMenu("Налаштування")
+        play_menu = settings_menu.addMenu("Програвання")
         
         self.autoplay_action = QAction("Автопрогравання", self, checkable=True)
         self.autoplay_action.setChecked(self.config.get('autoplay', True))
         self.autoplay_action.triggered.connect(self.save_current_config)
-        settings_menu.addAction(self.autoplay_action)
+        play_menu.addAction(self.autoplay_action)
         
         self.autoswitch_action = QAction("Автоперемикання джерела при обриві", self, checkable=True)
         self.autoswitch_action.setChecked(self.config.get('auto_switch', True))
         self.autoswitch_action.triggered.connect(self.save_current_config)
-        settings_menu.addAction(self.autoswitch_action)
+        play_menu.addAction(self.autoswitch_action)
         
         launch_menu = settings_menu.addMenu("Запуск програми")
         
