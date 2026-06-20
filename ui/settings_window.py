@@ -1,10 +1,10 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, 
                              QWidget, QCheckBox, QPushButton, QLabel, 
                              QComboBox, QDialogButtonBox)
-from PyQt6.QtMedia import QMediaDevices
+from PyQt6.QtMultimedia import QMediaDevices
 from PyQt6.QtCore import Qt
 import copy
-from core.utils import check_autostart
+from ui.main_window import check_autostart
 
 class SettingsDialog(QDialog):
     def __init__(self, parent, config):

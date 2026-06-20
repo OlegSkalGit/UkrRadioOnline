@@ -148,7 +148,6 @@ class UkrRadioApp(QMainWindow):
         
         saved_device = self.config.get('audio_device', '')
         if saved_device:
-            from PyQt6.QtMedia import QMediaDevices
             for device in QMediaDevices.audioOutputs():
                 if bytearray(device.id()).decode('utf-8', 'ignore') == saved_device:
                     self.audio_output.setDevice(device)
@@ -358,8 +357,7 @@ class UkrRadioApp(QMainWindow):
             self.config.update(new_config)
             
             # Autostart
-            from core.utils import toggle_autostart
-            toggle_autostart(autostart)
+            set_autostart(autostart)
             
             # Theme
             if self.config['theme'] != self.current_theme:
@@ -368,7 +366,6 @@ class UkrRadioApp(QMainWindow):
             
             # Audio device
             device_id = self.config.get('audio_device', '')
-            from PyQt6.QtMedia import QMediaDevices
             if not device_id:
                 self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
             else:
