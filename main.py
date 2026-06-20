@@ -134,6 +134,13 @@ def load_config():
         'autominimize': False,
         'minimize_to_tray': True,
         'auto_record': False,
+        'notifications': {
+            'background': True,
+            'playlists': True,
+            'playback': True,
+            'network': True,
+            'record': True
+        },
         'audio_device': ''
     }
     if os.path.exists(CONFIG_FILE):
@@ -475,7 +482,7 @@ class UkrRadioApp(QMainWindow):
         if socket:
             socket.deleteLater()
         self.show_and_activate_window()
-        self.tray_icon.showMessage("Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 1500)
+        self.show_notification("background", "Українське радіо", "Програма вже працює у фоновому режимі!", QSystemTrayIcon.MessageIcon.Information, 1500)
         
     def init_ui(self):
         self.create_menu()
@@ -597,6 +604,27 @@ class UkrRadioApp(QMainWindow):
         self.populate_audio_devices()
         
         settings_menu.addSeparator()
+        
+        # Сповіщення
+        notif_menu = settings_menu.addMenu("Сповіщення")
+        
+        notifs = self.config.get('notifications', {
+            'background': True, 'playlists': True, 'playback': True, 'network': True, 'record': True
+        })
+        
+        self.notif_actions = {}
+        for key, text in [
+            ('background', "Згортання / фоновий режим"),
+            ('playlists', "Оновлення плейлистів"),
+            ('playback', "Статус відтворення"),
+            ('network', "Обрив зв'язку"),
+            ('record', "Статус запису")
+        ]:
+            act = QAction(text, self, checkable=True)
+            act.setChecked(notifs.get(key, True))
+            act.triggered.connect(self.save_current_config)
+            notif_menu.addAction(act)
+            self.notif_actions[key] = act
         
         self.sched_enable_action = QAction("Увімкнути розклад (автозапуск/зупинка)", self, checkable=True)
         self.sched_enable_action.setChecked(self.config.get('schedule_enabled', False))
@@ -840,7 +868,7 @@ class UkrRadioApp(QMainWindow):
             self.source_cb.setCurrentIndex(current_source_idx)
             
         if added_count > 0:
-            self.tray_icon.showMessage("Плейлисти оновлено", f"Успішно завантажено {added_count} нових інтернет-радіостанцій.", QSystemTrayIcon.MessageIcon.Information, 1500)
+            self.show_notification("playlists", "Плейлисти оновлено", f"Успішно завантажено {added_count} нових інтернет-радіостанцій.", QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def toggle_theme(self):
         self.current_theme = 'light' if self.current_theme == 'dark' else 'dark'
@@ -866,7 +894,7 @@ class UkrRadioApp(QMainWindow):
 
     def toggle_play(self):
         if self.is_playing:
-            self.stop_radio()
+            self.stop_radio(user_initiated=True)
         else:
             self.play_radio(show_warning=True)
 
@@ -882,7 +910,7 @@ class UkrRadioApp(QMainWindow):
             return
             
         if self.record_thread:
-            self.stop_recording()
+            self.stop_recording(show_folder=False)
             
         station = self.station_cb.currentText()
         idx = self.source_cb.currentIndex()
@@ -906,9 +934,9 @@ class UkrRadioApp(QMainWindow):
         elif self.record_action.isChecked():
             self.start_recording()
 
-    def stop_radio(self):
+    def stop_radio(self, user_initiated=False):
         if self.record_thread:
-            self.stop_recording()
+            self.stop_recording(show_folder=user_initiated)
             
         self.player.stop()
         self.is_playing = False
@@ -930,13 +958,13 @@ class UkrRadioApp(QMainWindow):
         
         if self.autoswitch_action.isChecked() and len(sources) > 1:
             next_idx = (current_idx + 1) % len(sources)
-            self.tray_icon.showMessage("Обрив зв'язку", f"Перемикаємось на '{sources[next_idx]['name']}' (через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 1500)
+            self.show_notification("network", "Обрив зв'язку", f"Перемикаємось на '{sources[next_idx]['name']}' (через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 1500)
             self.ignore_station_change = True
             self.source_cb.setCurrentIndex(next_idx)
             self.save_current_config()
             self.ignore_station_change = False
         else:
-            self.tray_icon.showMessage("Обрив зв'язку", "Очікуємо на відновлення з'єднання (повтор через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 1500)
+            self.show_notification("network", "Обрив зв'язку", "Очікуємо на відновлення з'єднання (повтор через 5 сек)...", QSystemTrayIcon.MessageIcon.Warning, 1500)
             
         QTimer.singleShot(5000, self.retry_play)
 
@@ -969,6 +997,7 @@ class UkrRadioApp(QMainWindow):
             'auto_switch': self.autoswitch_action.isChecked(),
             'autoplay': self.autoplay_action.isChecked(),
             'auto_record': self.auto_record_action.isChecked(),
+            'notifications': {k: a.isChecked() for k, a in self.notif_actions.items()},
             'audio_device': self.config.get('audio_device', '')
         }
         save_config(cfg)
@@ -984,7 +1013,7 @@ class UkrRadioApp(QMainWindow):
                 return
             self.start_recording()
         else:
-            self.stop_recording()
+            self.stop_recording(show_folder=True)
 
     def start_recording(self):
         if self.record_thread and self.record_thread.isRunning():
@@ -1038,16 +1067,16 @@ class UkrRadioApp(QMainWindow):
         self.record_thread = RecordThread(url, filepath)
         self.record_thread.start()
         
-        self.tray_icon.showMessage("Запис розпочато", f"Записуємо станцію '{station}' у файл:\n{filename}", QSystemTrayIcon.MessageIcon.Information, 1500)
+        self.show_notification("record", "Запис розпочато", f"Записуємо станцію '{station}' у файл:\n{filename}", QSystemTrayIcon.MessageIcon.Information, 1500)
 
-    def stop_recording(self):
+    def stop_recording(self, show_folder=False):
         if self.record_thread:
             self.record_thread.stop()
             self.record_thread.wait()
             self.record_thread = None
-            self.tray_icon.showMessage("Запис зупинено", "Аудіофайл успішно збережено.", QSystemTrayIcon.MessageIcon.Information, 1500)
+            self.show_notification("record", "Запис зупинено", "Аудіофайл успішно збережено.", QSystemTrayIcon.MessageIcon.Information, 1500)
             
-            if not self.isMinimized() and self.isVisible():
+            if show_folder and not self.isMinimized() and self.isVisible():
                 if hasattr(self, 'current_record_dir') and os.path.exists(self.current_record_dir):
                     os.startfile(self.current_record_dir)
             
@@ -1116,8 +1145,8 @@ class UkrRadioApp(QMainWindow):
         play_action.triggered.connect(lambda: self.play_radio(show_warning=True))
         tray_menu.addAction(play_action)
         
-        stop_action = QAction("Зупинити", self)
-        stop_action.triggered.connect(self.stop_radio)
+        stop_action = QAction(QIcon("icons/stop.png"), "Зупинити", self)
+        stop_action.triggered.connect(lambda: self.stop_radio(user_initiated=True))
         tray_menu.addAction(stop_action)
         
         quit_action = QAction("Вихід", self)
@@ -1161,12 +1190,18 @@ class UkrRadioApp(QMainWindow):
             event.ignore()
             self.hide()
             if self.tray_icon.isVisible():
-                self.tray_icon.showMessage("Українське радіо", "Програма працює у фоновому режимі.", QSystemTrayIcon.MessageIcon.Information, 1500)
+                self.show_notification("background", "Українське радіо", "Програма працює у фоновому режимі.", QSystemTrayIcon.MessageIcon.Information, 1500)
         else:
             self.quit_app()
 
+    def show_notification(self, type_key, title, msg, icon, time=1500):
+        notifs = self.config.get('notifications', {})
+        if notifs.get(type_key, True):
+            if hasattr(self, 'tray_icon') and self.tray_icon.isVisible():
+                self.tray_icon.showMessage(title, msg, icon, time)
+
     def quit_app(self):
-        self.stop_radio()
+        self.stop_radio(user_initiated=True)
         QApplication.quit()
 
 if __name__ == "__main__":
