@@ -128,7 +128,7 @@ def load_config():
             'open_folder': True
         },
         'audio_device': '',
-        'favorites': []
+        'favorites': {}
     }
     if os.path.exists(CONFIG_FILE):
         try:

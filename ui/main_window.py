@@ -100,6 +100,17 @@ class UkrRadioApp(QMainWindow):
             else:
                 RADIO_STATIONS[name] = sources
                 
+        # Також завантажуємо улюблені станції з конфігу (якщо вони збережені зі шляхами)
+        favs = self.config.get('favorites', {})
+        if isinstance(favs, dict):
+            for name, sources in favs.items():
+                if name in RADIO_STATIONS:
+                    for src in sources:
+                        if src['url'] not in [s['url'] for s in RADIO_STATIONS[name]]:
+                            RADIO_STATIONS[name].append(src)
+                else:
+                    RADIO_STATIONS[name] = sources
+                    
         self.init_ui()
         self.apply_theme()
         self.setup_tray()
@@ -153,13 +164,22 @@ class UkrRadioApp(QMainWindow):
         
         # Header
         header_layout = QHBoxLayout()
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.title_lbl = QLabel("Українське радіо (online) 📻")
         self.title_lbl.setProperty("class", "header_title")
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
-        main_layout.addLayout(header_layout)
         
-
+        vol_icon = QLabel("🔈")
+        header_layout.addWidget(vol_icon)
+        self.vol_slider = QSlider(Qt.Orientation.Horizontal)
+        self.vol_slider.setRange(0, 100)
+        self.vol_slider.setValue(self.config.get('volume', 70))
+        self.vol_slider.setFixedWidth(100)
+        self.vol_slider.valueChanged.connect(self.on_volume_change)
+        header_layout.addWidget(self.vol_slider)
+        
+        main_layout.addLayout(header_layout)
         
         # Player Card
         self.player_card = QGroupBox()
@@ -181,6 +201,12 @@ class UkrRadioApp(QMainWindow):
         self.source_cb.currentIndexChanged.connect(self.on_source_change)
         station_layout.addWidget(self.source_cb, 1)
         
+        self.play_btn = QPushButton("▶")
+        self.play_btn.setProperty("class", "primary_btn")
+        self.play_btn.setFixedWidth(40)
+        self.play_btn.clicked.connect(self.toggle_play)
+        station_layout.addWidget(self.play_btn)
+        
         player_layout.addLayout(station_layout)
         
         self.metadata_lbl = QLabel("Дані відсутні.")
@@ -198,24 +224,6 @@ class UkrRadioApp(QMainWindow):
         if saved_idx < self.source_cb.count():
             self.source_cb.setCurrentIndex(saved_idx)
         
-        controls_layout = QHBoxLayout()
-        controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        self.play_btn = QPushButton("▶ Грати")
-        self.play_btn.setProperty("class", "primary_btn")
-        self.play_btn.clicked.connect(self.toggle_play)
-        controls_layout.addWidget(self.play_btn)
-        
-        controls_layout.addStretch()
-        controls_layout.addWidget(QLabel("🔈"))
-        self.vol_slider = QSlider(Qt.Orientation.Horizontal)
-        self.vol_slider.setRange(0, 100)
-        self.vol_slider.setValue(self.config.get('volume', 70))
-        self.vol_slider.setFixedWidth(150)
-        self.vol_slider.valueChanged.connect(self.on_volume_change)
-        controls_layout.addWidget(self.vol_slider)
-        controls_layout.addWidget(QLabel("🔊"))
-        
-        player_layout.addLayout(controls_layout)
         main_layout.addWidget(self.player_card)
         main_layout.addStretch()
 
@@ -628,11 +636,12 @@ class UkrRadioApp(QMainWindow):
         self.station_cb.clear()
         
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
-        favorites = self.config.get('favorites', [])
+        favorites = self.config.get('favorites', {})
+        
         all_stations = list(RADIO_STATIONS.keys())
         
         nat_list = [s for s in national if s in all_stations]
-        fav_list = sorted([s for s in favorites if s in all_stations and s not in nat_list])
+        fav_list = sorted([s for s in favorites.keys() if s in all_stations and s not in nat_list])
         other_list = sorted([s for s in all_stations if s not in nat_list and s not in fav_list])
         
         idx = 0
@@ -659,10 +668,15 @@ class UkrRadioApp(QMainWindow):
 
     def update_favorite_btn(self):
         station = self.get_current_station()
-        favorites = self.config.get('favorites', [])
+        favorites = self.config.get('favorites', {})
+        if isinstance(favorites, list):
+            is_fav = station in favorites
+        else:
+            is_fav = station in favorites
+            
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         
-        if station in favorites or station in national:
+        if is_fav or station in national:
             self.fav_btn.setText("★")
             self.fav_btn.setStyleSheet("color: #f9e2af;") # Жовтий колір для зірочки
         else:
@@ -676,12 +690,21 @@ class UkrRadioApp(QMainWindow):
             return # Національні станції завжди в улюблених
             
         if 'favorites' not in self.config:
-            self.config['favorites'] = []
+            self.config['favorites'] = {}
+        elif isinstance(self.config['favorites'], list):
+            new_favs = {}
+            for s in self.config['favorites']:
+                if s in RADIO_STATIONS:
+                    new_favs[s] = RADIO_STATIONS[s]
+            self.config['favorites'] = new_favs
             
-        if station in self.config['favorites']:
-            self.config['favorites'].remove(station)
+        favorites = self.config['favorites']
+        
+        if station in favorites:
+            del favorites[station]
         else:
-            self.config['favorites'].append(station)
+            if station in RADIO_STATIONS:
+                favorites[station] = RADIO_STATIONS[station]
             
         self.save_current_config()
         self.populate_stations(station_to_select=station)
@@ -774,7 +797,7 @@ class UkrRadioApp(QMainWindow):
         self.meta_thread.metadataFetched.connect(self.on_icy_metadata)
         self.meta_thread.start()
         
-        self.play_btn.setText("⏹ Зупинити")
+        self.play_btn.setText("⏹")
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
@@ -798,7 +821,7 @@ class UkrRadioApp(QMainWindow):
         
         self.metadata_lbl.setText("Дані відсутні.")
         
-        self.play_btn.setText("▶ Грати")
+        self.play_btn.setText("▶")
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
