@@ -600,6 +600,11 @@ class UkrRadioApp(QMainWindow):
         self.auto_record_action.triggered.connect(self.save_current_config)
         record_menu.addAction(self.auto_record_action)
         
+        record_menu.addSeparator()
+        self.open_records_action = QAction("Відкрити папку з записами", self)
+        self.open_records_action.triggered.connect(self.open_records_folder)
+        record_menu.addAction(self.open_records_action)
+        
         self.audio_devices_menu = settings_menu.addMenu("Вибір звукової карти")
         self.audio_device_group = QActionGroup(self)
         self.populate_audio_devices()
@@ -1017,6 +1022,28 @@ class UkrRadioApp(QMainWindow):
         else:
             self.stop_recording(show_folder=True)
 
+    def get_base_records_dir(self):
+        base_record_dir = os.path.join(APP_DIR, "records")
+        has_write_access = False
+        try:
+            os.makedirs(base_record_dir, exist_ok=True)
+            test_file = os.path.join(base_record_dir, "test.tmp")
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            has_write_access = True
+        except Exception:
+            has_write_access = False
+
+        if not has_write_access:
+            base_record_dir = os.path.join(os.path.expanduser("~"), "Music", "UkrRadioOnline_records")
+        return base_record_dir
+
+    def open_records_folder(self):
+        base_dir = self.get_base_records_dir()
+        os.makedirs(base_dir, exist_ok=True)
+        os.startfile(base_dir)
+
     def start_recording(self):
         if self.record_thread and self.record_thread.isRunning():
             return
@@ -1042,21 +1069,7 @@ class UkrRadioApp(QMainWindow):
         now = datetime.datetime.now()
         date_str = now.strftime("%Y.%m.%d")
         
-        # Перевірка прав доступу до APP_DIR
-        base_record_dir = os.path.join(APP_DIR, "records")
-        has_write_access = False
-        try:
-            os.makedirs(base_record_dir, exist_ok=True)
-            test_file = os.path.join(base_record_dir, "test.tmp")
-            with open(test_file, 'w') as f:
-                f.write("test")
-            os.remove(test_file)
-            has_write_access = True
-        except Exception:
-            has_write_access = False
-
-        if not has_write_access:
-            base_record_dir = os.path.join(os.path.expanduser("~"), "Music", "UkrRadioOnline_records")
+        base_record_dir = self.get_base_records_dir()
             
         date_dir = os.path.join(base_record_dir, date_str)
         self.current_record_dir = date_dir
