@@ -185,7 +185,14 @@ class UkrRadioApp(QMainWindow):
         self.player_card = QGroupBox()
         self.player_card.setProperty("class", "card")
         player_layout = QVBoxLayout(self.player_card)
-        player_layout.setSpacing(10)
+        # Search Box
+        search_layout = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Пошук станції...")
+        self.search_input.textChanged.connect(self.on_search_text_changed)
+        search_layout.addWidget(self.search_input)
+        player_layout.addLayout(search_layout)
+        
         station_layout = QHBoxLayout()
         
         self.fav_btn = QPushButton("☆")
@@ -631,15 +638,25 @@ class UkrRadioApp(QMainWindow):
         data = self.station_cb.currentData()
         return data if data else self.station_cb.currentText()
 
+    def on_search_text_changed(self, text):
+        current_station = self.get_current_station()
+        self.populate_stations(current_station)
+
     def populate_stations(self, station_to_select=None):
         self.station_cb.blockSignals(True)
         self.station_cb.clear()
         
+        search_text = ""
+        if hasattr(self, 'search_input'):
+            search_text = self.search_input.text().strip().lower()
+            
         national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
         favorites = self.config.get('favorites', {})
         
         all_stations = list(RADIO_STATIONS.keys())
-        
+        if search_text:
+            all_stations = [s for s in all_stations if search_text in s.lower()]
+            
         nat_list = [s for s in national if s in all_stations]
         fav_list = sorted([s for s in favorites.keys() if s in all_stations and s not in nat_list])
         other_list = sorted([s for s in all_stations if s not in nat_list and s not in fav_list])
