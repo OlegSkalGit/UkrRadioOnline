@@ -236,11 +236,17 @@ class UkrRadioApp(QMainWindow):
         header_layout.addWidget(self.title_lbl)
         header_layout.addStretch()
         
-        vol_layout = QHBoxLayout()
+        self.vol_container = QFrame()
+        self.vol_container.setProperty("class", "vol_container")
+        vol_layout = QHBoxLayout(self.vol_container)
+        vol_layout.setContentsMargins(10, 4, 10, 4)
+        vol_layout.setSpacing(8)
+        
         self.mute_btn = QPushButton("🔈")
-        self.mute_btn.setProperty("class", "icon_btn")
+        self.mute_btn.setProperty("class", "mute_btn")
         self.mute_btn.clicked.connect(self.toggle_mute)
         self.mute_btn.setToolTip("Вимкнути/увімкнути звук")
+        self.mute_btn.setFixedSize(24, 24)
         vol_layout.addWidget(self.mute_btn)
         
         self.is_muted = False
@@ -249,12 +255,12 @@ class UkrRadioApp(QMainWindow):
         self.vol_slider = QSlider(Qt.Orientation.Horizontal)
         self.vol_slider.setRange(0, 100)
         self.vol_slider.setValue(self.config.get('volume', 70))
-        self.vol_slider.setFixedWidth(100)
+        self.vol_slider.setFixedWidth(80)
         self.vol_slider.valueChanged.connect(self.on_volume_change)
         vol_layout.addWidget(self.vol_slider)
         vol_layout.addWidget(QLabel("🔊"))
         
-        header_layout.addLayout(vol_layout)
+        header_layout.addWidget(self.vol_container)
         main_layout.addLayout(header_layout)
         
         # Player Card

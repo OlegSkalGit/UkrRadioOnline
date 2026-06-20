@@ -113,3 +113,19 @@ QSlider::handle:horizontal {
     margin: -4px 0;
     border-radius: 7px;
 }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QFrame.vol_container {
+    background-color: #252538;
+    border-radius: 12px;
+}
+QPushButton.mute_btn {
+    font-size: 14px;
+    padding: 0px;
+    background-color: transparent;
+}
+QPushButton.mute_btn:hover {
+    background-color: #313244;
+}
