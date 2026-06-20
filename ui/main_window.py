@@ -71,8 +71,7 @@ class StationButton(QPushButton):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setProperty("class", "entry_bg")
-        self.setStyleSheet("text-align: left; padding: 4px; border: 1px solid #45475a; border-radius: 4px; background: #1e1e2e;")
+        self.setProperty("class", "station_btn")
         self.clicked.connect(self.show_popup)
         
         self.popup = QWidget(self, Qt.WindowType.Popup)

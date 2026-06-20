@@ -155,3 +155,39 @@ QPushButton.record_btn_circle.active {
 QPushButton.record_btn_circle.active:hover {
     background-color: #fca4ba;
 }
+
+QPushButton.station_btn {
+    text-align: left;
+    padding: 4px;
+    border: 1px solid #313244;
+    border-radius: 4px;
+    background-color: #252538;
+    color: #cdd6f4;
+}
+QPushButton.station_btn:hover {
+    background-color: #313244;
+}
+
+QTabWidget::pane {
+    border: 1px solid #313244;
+    background: #252538;
+    border-radius: 4px;
+}
+QTabBar::tab {
+    background: #1e1e2e;
+    border: 1px solid #313244;
+    border-bottom-color: #313244;
+    padding: 6px 12px;
+    margin-right: 2px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+QTabBar::tab:selected {
+    background: #252538;
+    border-bottom-color: #252538;
+    font-weight: bold;
+    color: #89b4fa;
+}
+QTabBar::tab:hover:!selected {
+    background: #313244;
+}
