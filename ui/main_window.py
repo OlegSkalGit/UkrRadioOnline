@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QComboBox, 
                              QPushButton, QSlider, QCheckBox, QLineEdit, 
                              QSystemTrayIcon, QMenu, QGroupBox,
-                             QMessageBox, QDialog, QTextBrowser, QFileDialog)
+                             QMessageBox, QDialog, QTextBrowser, QFileDialog, QCompleter)
 from PyQt6.QtCore import Qt, QTimer, QUrl, QEvent
 from PyQt6.QtNetwork import QLocalServer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QMediaMetaData
@@ -198,8 +198,6 @@ class UkrRadioApp(QMainWindow):
         self.station_cb.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.station_cb.lineEdit().setPlaceholderText("Введіть назву або оберіть зі списку...")
         # Use MatchContains for better search experience
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QCompleter
         completer = self.station_cb.completer()
         if completer:
             completer.setFilterMode(Qt.MatchFlag.MatchContains)
