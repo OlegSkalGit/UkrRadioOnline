@@ -129,3 +129,27 @@ QPushButton.mute_btn {
 QPushButton.mute_btn:hover {
     background-color: #313244;
 }
+
+QPushButton.record_btn_circle {
+    background-color: transparent;
+    color: #f38ba8;
+    border: 2px solid #f38ba8;
+    border-radius: 16px;
+    font-size: 14px;
+    padding: 0px;
+    min-width: 32px;
+    min-height: 32px;
+    max-width: 32px;
+    max-height: 32px;
+}
+QPushButton.record_btn_circle:hover {
+    background-color: rgba(243, 139, 168, 0.2);
+}
+QPushButton.record_btn_circle.active {
+    background-color: #f38ba8;
+    color: #11111b;
+}
+QPushButton.record_btn_circle.active:hover {
+    background-color: #fca4ba;
+    border-color: #fca4ba;
+}

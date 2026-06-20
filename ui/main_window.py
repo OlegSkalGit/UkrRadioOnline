@@ -296,6 +296,13 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.setFixedWidth(40)
         station_layout.addWidget(self.play_btn)
         
+        self.record_main_btn = QPushButton("●")
+        self.record_main_btn.setProperty("class", "record_btn_circle")
+        self.record_main_btn.clicked.connect(self.toggle_record_from_main)
+        self.record_main_btn.setFixedSize(32, 32)
+        self.record_main_btn.setToolTip("Почати запис")
+        station_layout.addWidget(self.record_main_btn)
+        
         player_layout.addLayout(station_layout)
         
         self.metadata_lbl = QLabel("Дані відсутні.")
@@ -797,6 +804,10 @@ class UkrRadioApp(QMainWindow):
         save_config(cfg)
         self.config = cfg
 
+    def toggle_record_from_main(self):
+        is_rec = self.record_thread and self.record_thread.isRunning()
+        self.on_record_toggled(not is_rec)
+
     def on_record_toggled(self, checked):
         if checked:
             if not self.is_playing:
@@ -881,6 +892,11 @@ class UkrRadioApp(QMainWindow):
         self.record_thread = RecordThread(url, filepath)
         self.record_thread.start()
         
+        self.record_main_btn.setProperty("class", "record_btn_circle active")
+        self.record_main_btn.style().unpolish(self.record_main_btn)
+        self.record_main_btn.style().polish(self.record_main_btn)
+        self.record_main_btn.setToolTip("Зупинити запис")
+        
         self.show_notification("record", "Запис розпочато", f"Записуємо станцію '{station}' у файл:\n{filename}", QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def stop_recording(self, show_folder=False):
@@ -888,6 +904,12 @@ class UkrRadioApp(QMainWindow):
             self.record_thread.stop()
             self.record_thread.wait()
             self.record_thread = None
+            
+            self.record_main_btn.setProperty("class", "record_btn_circle")
+            self.record_main_btn.style().unpolish(self.record_main_btn)
+            self.record_main_btn.style().polish(self.record_main_btn)
+            self.record_main_btn.setToolTip("Почати запис")
+            
             self.show_notification("record", "Запис зупинено", "Аудіофайл успішно збережено.", QSystemTrayIcon.MessageIcon.Information, 1500)
             
             if show_folder and self.config.get('notifications', {}).get('open_folder', True) and not self.isMinimized() and self.isVisible():
