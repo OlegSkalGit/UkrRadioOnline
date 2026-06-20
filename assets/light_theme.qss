@@ -1,0 +1,112 @@
+QWidget {
+    background-color: #f4f4f7;
+    color: #1e1e2e;
+    font-family: 'Segoe UI';
+    font-size: 14px;
+}
+QMenuBar {
+    background-color: #ffffff;
+    color: #1e1e2e;
+}
+QMenuBar::item:selected {
+    background-color: #e6e6ea;
+}
+QMenu {
+    background-color: #ffffff;
+    color: #1e1e2e;
+    border: 1px solid #e6e6ea;
+}
+QMenu::item:selected {
+    background-color: #e6e6ea;
+}
+QGroupBox.card {
+    background-color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    margin-top: 0px;
+}
+QLabel.header_title {
+    font-size: 22px;
+    font-weight: bold;
+    color: #3f51b5;
+    background-color: #f4f4f7;
+}
+QLabel.bold_label {
+    font-weight: bold;
+    background-color: #ffffff;
+}
+QLabel {
+    background-color: transparent;
+}
+QCheckBox {
+    background-color: transparent;
+}
+QPushButton {
+    background-color: #e6e6ea;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    min-height: 30px;
+}
+QPushButton:hover {
+    background-color: #f4f4f7;
+}
+QPushButton.primary_btn {
+    background-color: #3f51b5;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 16px;
+}
+QPushButton.primary_btn:hover {
+    background-color: #5c6bc0;
+}
+QPushButton.error_btn {
+    background-color: #d32f2f;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 16px;
+}
+QPushButton.icon_btn {
+    font-family: "Segoe UI Symbol";
+    font-size: 18px;
+    padding: 4px;
+    min-width: 25px;
+}
+QLabel.metadata_label {
+    font-size: 14px;
+    font-style: italic;
+    color: #585b70;
+    background-color: #f4f4f7;
+    margin-bottom: 5px;
+}
+QComboBox {
+    background-color: #e6e6ea;
+    border: 1px solid #f4f4f7;
+    border-radius: 4px;
+    padding: 6px;
+    min-height: 25px;
+}
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    selection-background-color: #3f51b5;
+}
+QLineEdit {
+    background-color: #e6e6ea;
+    border: none;
+    border-radius: 4px;
+    padding: 4px;
+}
+QSlider:horizontal {
+    padding: 0 7px;
+}
+QSlider::groove:horizontal {
+    background: #e6e6ea;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background: #3f51b5;
+    width: 14px;
+    margin: -4px 0;
+    border-radius: 7px;
+}

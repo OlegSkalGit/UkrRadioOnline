@@ -225,7 +225,15 @@ class UkrRadioApp(QMainWindow):
         controls_layout.addWidget(self.play_btn)
         
         controls_layout.addStretch()
-        controls_layout.addWidget(QLabel("🔈"))
+        self.mute_btn = QPushButton("🔈")
+        self.mute_btn.setProperty("class", "icon_btn")
+        self.mute_btn.clicked.connect(self.toggle_mute)
+        self.mute_btn.setToolTip("Вимкнути/увімкнути звук")
+        controls_layout.addWidget(self.mute_btn)
+        
+        self.is_muted = False
+        self.saved_volume = self.config.get('volume', 70)
+        
         self.vol_slider = QSlider(Qt.Orientation.Horizontal)
         self.vol_slider.setRange(0, 100)
         self.vol_slider.setValue(self.config.get('volume', 70))
@@ -509,122 +517,15 @@ class UkrRadioApp(QMainWindow):
         self.save_current_config()
 
     def apply_theme(self):
-        c = THEMES[self.current_theme]
-        qss = f"""
-        QWidget {{
-            background-color: {c['bg']};
-            color: {c['text']};
-            font-family: 'Segoe UI';
-            font-size: 14px;
-        }}
-        QMenuBar {{
-            background-color: {c['menu_bg']};
-            color: {c['menu_fg']};
-        }}
-        QMenuBar::item:selected {{
-            background-color: {c['menu_sel']};
-        }}
-        QMenu {{
-            background-color: {c['menu_bg']};
-            color: {c['menu_fg']};
-            border: 1px solid {c['menu_sel']};
-        }}
-        QMenu::item:selected {{
-            background-color: {c['menu_sel']};
-        }}
-        QGroupBox.card {{
-            background-color: {c['card_bg']};
-            border: none;
-            border-radius: 8px;
-            margin-top: 0px;
-        }}
-        QLabel.header_title {{
-            font-size: 22px;
-            font-weight: bold;
-            color: {c['accent']};
-            background-color: {c['bg']};
-        }}
-        QLabel.bold_label {{
-            font-weight: bold;
-            background-color: {c['card_bg']};
-        }}
-        QLabel {{
-            background-color: transparent;
-        }}
-        QCheckBox {{
-            background-color: transparent;
-        }}
-        QPushButton {{
-            background-color: {c['entry_bg']};
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            min-height: 30px;
-        }}
-        QPushButton:hover {{
-            background-color: {c['bg']};
-        }}
-        QPushButton.primary_btn {{
-            background-color: {c['accent']};
-            color: {c['accent_text']};
-            font-weight: bold;
-            font-size: 16px;
-        }}
-        QPushButton.primary_btn:hover {{
-            background-color: {c['accent_hover']};
-        }}
-        QPushButton.error_btn {{
-            background-color: {c['error']};
-            color: {c['accent_text']};
-            font-weight: bold;
-            font-size: 16px;
-        }}
-        QPushButton.icon_btn {{
-            font-family: "Segoe UI Symbol";
-            font-size: 18px;
-            padding: 4px;
-            min-width: 25px;
-        }}
-        QLabel.metadata_label {{
-            font-size: 14px;
-            font-style: italic;
-            color: {c['subtext']};
-            background-color: {c['bg']};
-            margin-bottom: 5px;
-        }}
-        QComboBox {{
-            background-color: {c['entry_bg']};
-            border: 1px solid {c['bg']};
-            border-radius: 4px;
-            padding: 6px;
-            min-height: 25px;
-        }}
-        QComboBox QAbstractItemView {{
-            background-color: {c['card_bg']};
-            selection-background-color: {c['accent']};
-        }}
-        QLineEdit {{
-            background-color: {c['entry_bg']};
-            border: none;
-            border-radius: 4px;
-            padding: 4px;
-        }}
-        QSlider:horizontal {{
-            padding: 0 7px;
-        }}
-        QSlider::groove:horizontal {{
-            background: {c['entry_bg']};
-            height: 6px;
-            border-radius: 3px;
-        }}
-        QSlider::handle:horizontal {{
-            background: {c['accent']};
-            width: 14px;
-            margin: -4px 0;
-            border-radius: 7px;
-        }}
-        """
-        self.setStyleSheet(qss)
+        theme_file = f"dark_theme.qss" if self.current_theme == 'dark' else "light_theme.qss"
+        theme_path = os.path.join(APP_DIR, "assets", theme_file)
+        
+        try:
+            with open(theme_path, 'r', encoding='utf-8') as f:
+                qss = f.read()
+            self.setStyleSheet(qss)
+        except Exception as e:
+            print(f"Помилка завантаження теми: {e}")
         
         self.theme_action.setText("Темна тема" if self.current_theme == 'light' else "Світла тема")
         
@@ -777,6 +678,21 @@ class UkrRadioApp(QMainWindow):
         if self.is_playing or self.config.get('autoplay', True):
             self.play_radio()
 
+    def toggle_mute(self):
+        if self.is_muted:
+            self.is_muted = False
+            self.vol_slider.setValue(self.saved_volume)
+            self.mute_btn.setText("🔈")
+            if hasattr(self, 'tray_mute_action'):
+                self.tray_mute_action.setText("Вимкнути звук")
+        else:
+            self.saved_volume = self.vol_slider.value()
+            self.is_muted = True
+            self.vol_slider.setValue(0)
+            self.mute_btn.setText("🔇")
+            if hasattr(self, 'tray_mute_action'):
+                self.tray_mute_action.setText("Увімкнути звук")
+
     def on_volume_change(self, val):
         self.audio_output.setVolume(val / 100.0)
         self.save_current_config()
@@ -827,6 +743,10 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
         
+        if hasattr(self, 'tray_play_action'):
+            self.tray_play_action.setText("Зупинити")
+            self.tray_play_action.setIcon(QIcon("icons/stop.png"))
+        
         if self.auto_record_action.isChecked() and not self.record_action.isChecked():
             self.record_action.setChecked(True)
         elif self.record_action.isChecked():
@@ -850,6 +770,10 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
+        
+        if hasattr(self, 'tray_play_action'):
+            self.tray_play_action.setText("Грати")
+            self.tray_play_action.setIcon(QIcon())
 
     def on_icy_metadata(self, title):
         if not self.is_playing:
@@ -1106,13 +1030,15 @@ class UkrRadioApp(QMainWindow):
         show_action.triggered.connect(self.show)
         tray_menu.addAction(show_action)
         
-        play_action = QAction("Грати", self)
-        play_action.triggered.connect(lambda: self.play_radio(show_warning=True))
-        tray_menu.addAction(play_action)
+        self.tray_play_action = QAction("Зупинити" if self.is_playing else "Грати", self)
+        if self.is_playing:
+            self.tray_play_action.setIcon(QIcon("icons/stop.png"))
+        self.tray_play_action.triggered.connect(self.toggle_play)
+        tray_menu.addAction(self.tray_play_action)
         
-        stop_action = QAction(QIcon("icons/stop.png"), "Зупинити", self)
-        stop_action.triggered.connect(lambda: self.stop_radio(user_initiated=True))
-        tray_menu.addAction(stop_action)
+        self.tray_mute_action = QAction("Увімкнути звук" if getattr(self, 'is_muted', False) else "Вимкнути звук", self)
+        self.tray_mute_action.triggered.connect(self.toggle_mute)
+        tray_menu.addAction(self.tray_mute_action)
         
         quit_action = QAction("Вихід", self)
         quit_action.triggered.connect(self.quit_app)
