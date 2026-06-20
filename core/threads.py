@@ -97,3 +97,44 @@ class RecordThread(QThread):
 
     def stop(self):
         self.running = False
+
+class MetadataFetcher(QThread):
+    metadataFetched = pyqtSignal(str)
+    
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+        self.running = True
+        
+    def run(self):
+        while self.running:
+            title = self.get_icy_metadata(self.url)
+            if title is not None:
+                self.metadataFetched.emit(title)
+                
+            for _ in range(100):
+                if not self.running: return
+                self.msleep(100) # 10 seconds
+
+    def get_icy_metadata(self, url):
+        req = urllib.request.Request(url, headers={'Icy-MetaData': '1', 'User-Agent': 'Mozilla/5.0'})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as response:
+                metaint = int(response.headers.get('icy-metaint', 0))
+                if metaint == 0:
+                    return None
+                response.read(metaint)
+                length_byte = response.read(1)
+                if not length_byte: return None
+                length = ord(length_byte) * 16
+                if length > 0:
+                    data = response.read(length).decode('utf-8', errors='ignore')
+                    match = re.search(r"StreamTitle='([^']*)';", data)
+                    if match:
+                        return match.group(1).strip()
+                return ""
+        except Exception:
+            return None
+
+    def stop(self):
+        self.running = False

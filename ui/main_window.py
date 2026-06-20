@@ -14,7 +14,7 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QMedia
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
 
 from core.config import load_config, save_config, RADIO_STATIONS, THEMES, APP_DIR
-from core.threads import PlaylistFetcher, RecordThread
+from core.threads import PlaylistFetcher, RecordThread, MetadataFetcher
 from ui.schedule_dialog import ScheduleDialog
 
 def create_icon():
@@ -82,6 +82,7 @@ class UkrRadioApp(QMainWindow):
         self.is_playing = False
         self.ignore_station_change = False
         self.record_thread = None
+        self.meta_thread = None
         
         self.player.errorOccurred.connect(self.on_player_error)
         self.player.metaDataChanged.connect(self.on_metadata_changed)
@@ -668,6 +669,15 @@ class UkrRadioApp(QMainWindow):
         self.player.play()
         self.is_playing = True
         
+        if self.meta_thread:
+            self.meta_thread.stop()
+            self.meta_thread.wait()
+            self.meta_thread = None
+            
+        self.meta_thread = MetadataFetcher(url)
+        self.meta_thread.metadataFetched.connect(self.on_icy_metadata)
+        self.meta_thread.start()
+        
         self.play_btn.setText("⏹ Зупинити")
         self.play_btn.setProperty("class", "error_btn")
         self.play_btn.style().unpolish(self.play_btn)
@@ -682,6 +692,11 @@ class UkrRadioApp(QMainWindow):
         if self.record_thread:
             self.stop_recording(show_folder=user_initiated)
             
+        if self.meta_thread:
+            self.meta_thread.stop()
+            self.meta_thread.wait()
+            self.meta_thread = None
+            
         self.player.stop()
         self.is_playing = False
         
@@ -692,6 +707,15 @@ class UkrRadioApp(QMainWindow):
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.style().unpolish(self.play_btn)
         self.play_btn.style().polish(self.play_btn)
+
+    def on_icy_metadata(self, title):
+        if not self.is_playing:
+            return
+        if title:
+            self.metadata_lbl.setText(f"🎵 {title}")
+            self.metadata_lbl.show()
+        else:
+            self.metadata_lbl.hide()
 
     def on_metadata_changed(self):
         if not self.is_playing:
