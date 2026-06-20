@@ -69,10 +69,14 @@ class UkrRadioApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("Українське радіо (online)")
         self.setMinimumSize(500, 320)
-        self.resize(500, 320)
-        self.setWindowIcon(create_icon())
         
         self.config = load_config()
+        saved_width = self.config.get('window_width', 500)
+        saved_height = self.config.get('window_height', 320)
+        self.resize(saved_width, saved_height)
+        
+        self.setWindowIcon(create_icon())
+        
         self.current_theme = self.config.get('theme', 'dark')
         
         self.player = QMediaPlayer()
@@ -110,6 +114,9 @@ class UkrRadioApp(QMainWindow):
         QTimer.singleShot(500, self.startup_autoplay)
         
     def startup_autoplay(self):
+        if self.config.get('auto_record', False):
+            self.show_notification("startup_autorecord", "Увага! Автозапис", "Функція автоматичного запису ефіру активна.", QSystemTrayIcon.MessageIcon.Warning, 3000)
+            
         if not self.config.get('autoplay', True):
             return
             
@@ -182,6 +189,7 @@ class UkrRadioApp(QMainWindow):
             self.source_cb.setCurrentIndex(saved_idx)
         
         controls_layout = QHBoxLayout()
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.play_btn = QPushButton("▶ Грати")
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.clicked.connect(self.toggle_play)
@@ -261,7 +269,7 @@ class UkrRadioApp(QMainWindow):
         notif_menu = settings_menu.addMenu("Сповіщення")
         
         notifs = self.config.get('notifications', {
-            'background': True, 'playlists': True, 'playback': True, 'network': True, 'record': True, 'open_folder': True
+            'background': True, 'playlists': True, 'playback': True, 'network': True, 'record': True, 'open_folder': True, 'startup_autorecord': True
         })
         
         self.notif_actions = {}
@@ -271,7 +279,8 @@ class UkrRadioApp(QMainWindow):
             ('playback', "Статус відтворення"),
             ('network', "Обрив зв'язку"),
             ('record', "Статус запису"),
-            ('open_folder', "Відкривати папку з записами після зупинки")
+            ('open_folder', "Відкривати папку з записами після зупинки"),
+            ('startup_autorecord', "Повідомлення про автозапис при старті")
         ]:
             act = QAction(text, self, checkable=True)
             act.setChecked(notifs.get(key, True))
@@ -991,6 +1000,10 @@ class UkrRadioApp(QMainWindow):
         super().changeEvent(event)
 
     def closeEvent(self, event):
+        self.config['window_width'] = self.width()
+        self.config['window_height'] = self.height()
+        save_config(self.config)
+        
         if self.config.get('minimize_to_tray', True):
             event.ignore()
             self.hide()

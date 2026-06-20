@@ -36,6 +36,7 @@ class ScheduleDialog(QDialog):
         time_layout.addWidget(self.start_edit)
         time_layout.addWidget(QLabel("-"))
         time_layout.addWidget(self.end_edit)
+        time_layout.addStretch()
         layout.addLayout(time_layout)
         
         note_lbl = QLabel("Формат: ГГ:ХХ (наприклад, 08:00 - 18:00)")
