@@ -889,6 +889,7 @@ class UkrRadioApp(QMainWindow):
         self.record_thread = RecordThread(url, filepath)
         self.record_thread.start()
         
+        self.record_main_btn.setText("■")
         self.record_main_btn.setProperty("class", "record_btn_circle active")
         self.record_main_btn.style().unpolish(self.record_main_btn)
         self.record_main_btn.style().polish(self.record_main_btn)
@@ -902,6 +903,7 @@ class UkrRadioApp(QMainWindow):
             self.record_thread.wait()
             self.record_thread = None
             
+            self.record_main_btn.setText("●")
             self.record_main_btn.setProperty("class", "record_btn_circle")
             self.record_main_btn.style().unpolish(self.record_main_btn)
             self.record_main_btn.style().polish(self.record_main_btn)
