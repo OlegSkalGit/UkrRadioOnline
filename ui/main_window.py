@@ -460,6 +460,12 @@ class UkrRadioApp(QMainWindow):
             font-weight: bold;
             font-size: 16px;
         }}
+        QPushButton.icon_btn {{
+            font-family: "Segoe UI Symbol";
+            font-size: 18px;
+            padding: 4px;
+            min-width: 25px;
+        }}
         QLabel.metadata_label {{
             font-size: 14px;
             font-style: italic;
