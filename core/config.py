@@ -45,7 +45,8 @@ CONFIG_FILE = os.path.join(APP_DIR, "radio_config.json")
 
 NATIONAL_STATIONS = [
     "Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка",
-    "Радіо ROKS", "Радіо Байрактар", "Радіо Казка", "Радіо Класик", "Радіо Релакс", "Радіо Шансон", "Хіт FM"
+    "Радіо ROKS", "Радіо Байрактар", "Радіо Казка", "Радіо Класик", "Радіо Релакс", "Радіо Шансон", "Хіт FM",
+    "Люкс ФМ", "Мелодія FM", "Наше радіо", "Ностальжі"
 ]
 
 RADIO_STATIONS = {
@@ -99,6 +100,9 @@ RADIO_STATIONS = {
     ],
     "Ностальжі": [
         {"name": "Основне", "url": "https://icecast.luxnet.ua/nostalgie"}
+    ],
+    "Наше радіо": [
+        {"name": "Основне", "url": "https://online.nasheradio.ua/NasheRadio"}
     ],
     "Шлягер FM": [
         {"name": "Основне", "url": "https://stream.radiocorp.com.ua/shlager"}
