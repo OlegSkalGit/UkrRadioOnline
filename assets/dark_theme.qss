@@ -130,6 +130,16 @@ QPushButton.mute_btn:hover {
     background-color: #313244;
 }
 
+QPushButton#play_btn {
+    border-radius: 16px;
+    padding: 0px;
+    min-width: 32px;
+    min-height: 32px;
+    max-width: 32px;
+    max-height: 32px;
+    font-size: 16px;
+}
+
 QPushButton.record_btn_circle {
     background-color: #313244;
     color: #f38ba8;

@@ -289,9 +289,10 @@ class UkrRadioApp(QMainWindow):
         station_layout.addWidget(self.source_cb, 1)
         
         self.play_btn = QPushButton("▶")
+        self.play_btn.setObjectName("play_btn")
         self.play_btn.setProperty("class", "primary_btn")
         self.play_btn.clicked.connect(self.toggle_play)
-        self.play_btn.setFixedWidth(40)
+        self.play_btn.setFixedSize(32, 32)
         station_layout.addWidget(self.play_btn)
         
         self.record_main_btn = QPushButton("●")
