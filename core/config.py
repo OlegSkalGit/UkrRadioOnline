@@ -105,16 +105,16 @@ RADIO_STATIONS = {
         {"name": "Основне", "url": "https://online.nasheradio.ua/NasheRadio"}
     ],
     "Шлягер FM": [
-        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/shlager"}
+        {"name": "Основне", "url": "https://cast.brg.ua/shanson_main_public_mp3_hq"}
     ],
     "Радіо Шансон": [
-        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/shanson"}
+        {"name": "Основне", "url": "https://cast.brg.ua/shanson_main_public_mp3_hq"}
     ],
     "DJ FM": [
-        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/djfm"}
+        {"name": "Основне", "url": "https://cast.brg.ua/djfm_main_public_mp3_hq"}
     ],
     "Power FM": [
-        {"name": "Основне", "url": "https://stream.radiocorp.com.ua/powerfm"}
+        {"name": "Основне", "url": "https://cast.brg.ua/powerfm_main_public_mp3_hq"}
     ]
 }
 
