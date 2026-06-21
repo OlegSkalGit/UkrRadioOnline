@@ -14,7 +14,7 @@ from PyQt6.QtNetwork import QLocalServer
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices, QMediaMetaData
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction, QActionGroup
 
-from core.config import load_config, save_config, RADIO_STATIONS, THEMES, APP_DIR
+from core.config import load_config, save_config, RADIO_STATIONS, NATIONAL_STATIONS, THEMES, APP_DIR
 from core.threads import PlaylistFetcher, RecordThread, MetadataFetcher
 from ui.schedule_dialog import ScheduleDialog
 
@@ -519,7 +519,7 @@ class UkrRadioApp(QMainWindow):
         return self.config.get('station', 'Радіо Промінь')
 
     def populate_stations(self, station_to_select=None):
-        national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
+        national = NATIONAL_STATIONS
         favorites = self.config.get('favorites', {})
         all_stations = list(RADIO_STATIONS.keys())
         
@@ -550,7 +550,7 @@ class UkrRadioApp(QMainWindow):
         else:
             is_fav = station in favorites
             
-        national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
+        national = NATIONAL_STATIONS
         
         if is_fav or station in national:
             self.fav_btn.setText("★")
@@ -561,7 +561,7 @@ class UkrRadioApp(QMainWindow):
 
     def toggle_favorite(self):
         station = self.get_current_station()
-        national = ["Радіо Промінь", "Українське Радіо", "Радіо Культура", "Радіо Україна (Всесвітня служба)", "Радіоточка"]
+        national = NATIONAL_STATIONS
         if station in national:
             return # Національні станції завжди в улюблених
             
