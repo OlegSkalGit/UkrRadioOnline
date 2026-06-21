@@ -80,6 +80,12 @@ RADIO_STATIONS = {
     "Радіо Байрактар": [
         {"name": "Основне", "url": "https://online.radiobayraktar.ua/RadioBayraktar"}
     ],
+    "Радіо Казка": [
+        {"name": "Основне", "url": "https://online.radiokazka.ua/RadioKazka"}
+    ],
+    "Радіо Класик": [
+        {"name": "Основне", "url": "https://online.radioclassic.ua/RadioClassic"}
+    ],
     "Люкс ФМ": [
         {"name": "Основне", "url": "https://icecast.luxnet.ua/lux-fm"}
     ],
