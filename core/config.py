@@ -93,7 +93,7 @@ RADIO_STATIONS = {
         {"name": "Основне", "url": "https://online.radioclassic.ua/RadioClassic"}
     ],
     "Люкс ФМ": [
-        {"name": "Основне", "url": "https://icecast.luxnet.ua/lux-fm"}
+        {"name": "Основне", "url": "https://icecast.luxnet.ua/lux"}
     ],
     "Максимум ФМ": [
         {"name": "Основне", "url": "https://icecast.luxnet.ua/maximum"}
